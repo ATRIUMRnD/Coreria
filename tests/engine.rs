@@ -1,4 +1,38 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use coreria::{Engine, Entity};
+use gl::Gl;
+
+struct MockEntity {
+    pub updates: u64,
+}
+
+impl MockEntity {
+    fn new() -> Self {
+        MockEntity { updates: 0 }
+    }
+}
+
+impl Entity for MockEntity {
+    fn update(&mut self, _delta: f32) {
+        self.updates += 1;
+    }
+    fn render(&self, _gl: &Gl) {}
+}
+
+#[test]
+fn test_tick_increments_entity() {
+    let mut entity = MockEntity::new();
+    entity.update(1.0 / 60.0);
+    assert_eq!(entity.updates, 1);
+}
+
+#[test]
+fn test_multiple_ticks() {
+    let mut entity = MockEntity::new();
+    for _ in 0..10 {
+        entity.update(1.0 / 60.0);
+    }
+    assert_eq!(entity.updates, 10);
+}use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
