@@ -43,5 +43,80 @@ impl Engine {
 	pub fn add_entity(&mut self, entity: Box<dyn Entity>) {
 		self.entities.push(entity);
 	}
-	// Loop and rendering logic will be implemented in the next steps.
+
+	/// Run the engine: create window, OpenGL context, and start the event loop.
+	pub fn run(mut self) {
+		let event_loop = EventLoop::new();
+		let window = winit::window::WindowBuilder::new()
+			.with_title("Coreria Demo")
+			.build(&event_loop)
+			.expect("Failed to create window");
+		let gl_context = unsafe {
+			glutin::ContextBuilder::new()
+				.build_windowed(window.clone(), &event_loop)
+				.expect("Failed to create GL context")
+				.make_current()
+				.expect("Failed to activate GL context")
+		};
+		let gl = unsafe { Gl::load_with(|s| gl_context.get_proc_address(s) as *const _) };
+
+		unsafe {
+			gl.ClearColor(0.1, 0.1, 0.1, 1.0);
+		}
+
+		self.event_loop = Some(event_loop);
+		self.window = Some(window);
+		self.gl_context = Some(gl_context);
+		self.gl = Some(gl);
+		self.last_time = Instant::now();
+
+		let mut accumulator = 0.0;
+		let mut last_time = Instant::now();
+		let mut tick = 0u64;
+		let gl = self.gl.as_ref().unwrap().clone();
+		let gl_context = self.gl_context.as_ref().unwrap();
+		let window = self.window.as_ref().unwrap();
+		let mut entities = self.entities;
+
+		let event_loop = self.event_loop.take().unwrap();
+		event_loop.run(move |event, _, control_flow| {
+			use winit::event::{Event, WindowEvent, KeyboardInput, VirtualKeyCode};
+			use winit::event_loop::ControlFlow;
+			*control_flow = ControlFlow::Wait;
+
+			match event {
+				Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
+				Event::WindowEvent { event: WindowEvent::KeyboardInput { input, .. }, .. } => {
+					if let Some(VirtualKeyCode::Escape) = input.virtual_keycode {
+						*control_flow = ControlFlow::Exit;
+					}
+				}
+				Event::RedrawRequested(_) => {
+					unsafe {
+						gl.Clear(gl::COLOR_BUFFER_BIT);
+					}
+					for entity in &entities {
+						entity.render(&gl);
+					}
+					gl_context.swap_buffers().unwrap();
+				}
+				Event::MainEventsCleared => {
+					window.request_redraw();
+					let now = Instant::now();
+					let delta = now.duration_since(last_time).as_secs_f64();
+					last_time = now;
+					accumulator += delta;
+					let dt = 1.0 / 60.0;
+					while accumulator >= dt {
+						for entity in &mut entities {
+							entity.update(dt as f32);
+						}
+						accumulator -= dt;
+						tick += 1;
+					}
+				}
+				_ => (),
+			}
+		});
+	}
 }
