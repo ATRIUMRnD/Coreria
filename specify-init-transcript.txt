@@ -1,0 +1,65 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20250921113431
+Username: XING\there
+RunAs User: XING\there
+Configuration Name: 
+Machine: XING (Microsoft Windows NT 10.0.26100.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -noexit -command try { . "c:\Users\there\AppData\Local\Programs\Microsoft VS Code\resources\app\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration.ps1" } catch {}
+Process ID: 14476
+PSVersion: 5.1.26100.6584
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.6584
+BuildVersion: 10.0.26100.6584
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is .\specify-init-transcript.txt
+└── ● Finalize (project ready)
+
+Project ready.
+
+╭──────────────────────────────────────────────────────────── Next steps ─────────────────────────────────────────────────────────────╮
+│                                                                                                                                     │
+│  1. You're already in the project directory!                                                                                        │
+│  2. Open in Visual Studio Code and use /specify, /plan, /tasks commands with GitHub Copilot                                         │
+│  3. Update CONSTITUTION.md with your project's non-negotiable principles                                                            │
+│                                                                                                                                     │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+PS D:\Coreria\specify-init-test> Set-Location D:\Coreria\Coreria; Start-Transcript -Path .\specify-init-transcript.txt -Force; echo y |
+ specify init --here --ai copilot --ignore-agent-tools --no-git --debug; Stop-Transcript
+Transcript started, output file is .\specify-init-transcript.txt
+                                         ███████╗██████╗ ███████╗ ██████╗██╗███████╗██╗   ██╗
+                                         ██╔════╝██╔══██╗██╔════╝██╔════╝██║██╔════╝╚██╗ ██╔╝
+                                         ███████╗██████╔╝█████╗  ██║     ██║█████╗   ╚████╔╝
+                                         ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══╝    ╚██╔╝
+                                         ███████║██║     ███████╗╚██████╗██║██║        ██║
+                                         ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝        ╚═╝
+
+                                                    Spec-Driven Development Toolkit
+
+Warning: Current directory is not empty (18 items)
+Template files will be merged with existing content and may overwrite existing files
+Do you want to continue? [y/N]: ╭────────────────────────────────────────────╮
+│ Specify Project Setup                      │
+│ Initializing in current directory: Coreria │
+│ Path: D:\Coreria\Coreria                   │
+╰────────────────────────────────────────────╯
+Selected AI assistant: copilot
+Selected script type: ps
+╭────────────────────────────────────────────────────────────── Failure ──────────────────────────────────────────────────────────────╮
+│ Initialization failed: 1                                                                                                            │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭───────────────────────────────────────────────────────── Debug Environment ─────────────────────────────────────────────────────────╮
+│ Python   → 3.11.9                                                                                                                   │
+│ Platform → win32                                                                                                                    │
+│ CWD      → D:\Coreria\Coreria                                                                                                       │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+**********************
+Windows PowerShell transcript end
+End time: 20250921113432
+**********************
