@@ -5,6 +5,12 @@ edition = "2021"
 description = "A tiny starter game engine inspired by Epoch of Elria, rewritten in Rust."
 license = "MIT"
 
+[dependencies]
+winit = "0.29"
+glutin = "0.31"
+instant = "0.1"
+gl = { git = "https://github.com/bwasty/gl-rs.git" }
+
 [lib]
 name = "coreria"
 path = "src/lib.rs"
