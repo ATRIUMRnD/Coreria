@@ -1,8 +1,0 @@
-{
-  "status": "prototype created",
-  "next_steps": [
-    "Integrate real xAI API key",
-    "Connect Unity hooks",
-    "Develop drag-and-drop UI"
-  ]
-}
