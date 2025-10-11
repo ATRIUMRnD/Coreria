@@ -33,9 +33,9 @@ void titan_ultimate(void* self, void* target) {
     FightingStyle* s = (FightingStyle*)self;
     if (s->meter >= 100) {
         physics_manager_apply_impulse_aoe((Vector3){0, -300, 0}, 6.0f);
-        ((Entity*)target)->health -= 100;
+           ((Entity*)target)->style.health -= 100;
         s->meter = 0;
-        printf("Target hit, Health: %.0f, Lives: %d\n", ((Entity*)target)->health, ((Entity*)target)->lives);
+           printf("Target hit, Health: %.0f, Lives: %d\n", ((Entity*)target)->style.health, ((Entity*)target)->style.lives);
     }
 }
 
