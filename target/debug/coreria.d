@@ -1,1 +1,1 @@
-D:\Coreria\target\debug\coreria.exe: D:\Coreria\src\main.rs
+/home/runner/work/Coreria/Coreria/target/debug/coreria: /home/runner/work/Coreria/Coreria/src/main.rs
