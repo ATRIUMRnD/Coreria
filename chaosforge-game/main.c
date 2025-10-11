@@ -24,8 +24,22 @@ int dynamic_object_count = 0;
 float player_x = 0.0f, player_z = -5.0f;
 int player_style_global = 0;
 
-// Forward declaration for key callback
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        if (key == GLFW_KEY_W) player_z += 0.5f;
+        if (key == GLFW_KEY_S) player_z -= 0.5f;
+        if (key == GLFW_KEY_A) player_x -= 0.5f;
+        if (key == GLFW_KEY_D) player_x += 0.5f;
+        if (key == GLFW_KEY_SPACE && dynamic_object_count < MAX_DYNAMIC_OBJECTS) {
+            dynamic_objects[dynamic_object_count].x = player_x;
+            dynamic_objects[dynamic_object_count].z = player_z;
+            dynamic_objects[dynamic_object_count].style = player_style_global;
+            dynamic_object_count++;
+            add_log("[Game] New object spawned at player position.");
+        }
+    }
+}
 
 #define MAX_LOG_LINES 32
 #define LOG_LINE_LENGTH 128
