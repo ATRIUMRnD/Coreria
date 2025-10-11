@@ -1,3 +1,81 @@
+#include <GLFW/glfw3.h>
+#include <GL/glut.h>
+#include <GL/glu.h>
+#include <GL/gl.h>
+#include <math.h>
+#include <string.h>
+#include <time.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+// Fighting styles
+const char* fighting_styles[] = {"Brawler", "Striker", "Phantom", "Titan"};
+int selected_style = 0;
+int in_menu = 1;
+
+void copy_to_clipboard(const char* text) {
+#ifdef _WIN32
+    const size_t len = strlen(text) + 1;
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, len);
+    memcpy(GlobalLock(hMem), text, len);
+    GlobalUnlock(hMem);
+    OpenClipboard(0);
+    EmptyClipboard();
+    SetClipboardData(CF_TEXT, hMem);
+    CloseClipboard();
+#endif
+}
+void draw_background() {
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, 800, 0, 600);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glBegin(GL_QUADS);
+    glColor3f(0.1f, 0.1f, 0.3f); glVertex2i(0, 0);
+    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(800, 0);
+    glColor3f(0.3f, 0.3f, 0.7f); glVertex2i(800, 600);
+    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(0, 600);
+    glEnd();
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+}
+void draw_menu() {
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, 800, 0, 600);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glColor3f(1,1,1);
+    glRasterPos2i(300, 500);
+    const char* title = "Select Fighting Style:";
+    for (int i = 0; title[i] != '\0'; ++i)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, title[i]);
+    for (int i = 0; i < 4; ++i) {
+        glColor3f(i == selected_style ? 1 : 0.7, 1, 1);
+        glRasterPos2i(320, 450 - i*40);
+        for (int j = 0; fighting_styles[i][j] != '\0'; ++j)
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, fighting_styles[i][j]);
+    }
+    glColor3f(1,1,0.7);
+    glRasterPos2i(320, 250);
+    const char* start = "Press ENTER to start, C to copy style";
+    for (int i = 0; start[i] != '\0'; ++i)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, start[i]);
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+}
+// Prototype for add_log to fix implicit declaration
+void add_log(const char* msg);
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,16 +105,29 @@ int player_style_global = 0;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        if (key == GLFW_KEY_W) player_z += 0.5f;
-        if (key == GLFW_KEY_S) player_z -= 0.5f;
-        if (key == GLFW_KEY_A) player_x -= 0.5f;
-        if (key == GLFW_KEY_D) player_x += 0.5f;
-        if (key == GLFW_KEY_SPACE && dynamic_object_count < MAX_DYNAMIC_OBJECTS) {
-            dynamic_objects[dynamic_object_count].x = player_x;
-            dynamic_objects[dynamic_object_count].z = player_z;
-            dynamic_objects[dynamic_object_count].style = player_style_global;
-            dynamic_object_count++;
-            add_log("[Game] New object spawned at player position.");
+        if (in_menu) {
+            if (key == GLFW_KEY_UP) selected_style = (selected_style + 3) % 4;
+            if (key == GLFW_KEY_DOWN) selected_style = (selected_style + 1) % 4;
+            if (key == GLFW_KEY_ENTER) {
+                player_style_global = selected_style;
+                in_menu = 0;
+            }
+            if (key == GLFW_KEY_C) {
+                copy_to_clipboard(fighting_styles[selected_style]);
+                add_log("[Menu] Style copied to clipboard.");
+            }
+        } else {
+            if (key == GLFW_KEY_W) player_z += 0.5f;
+            if (key == GLFW_KEY_S) player_z -= 0.5f;
+            if (key == GLFW_KEY_A) player_x -= 0.5f;
+            if (key == GLFW_KEY_D) player_x += 0.5f;
+            if (key == GLFW_KEY_SPACE && dynamic_object_count < MAX_DYNAMIC_OBJECTS) {
+                dynamic_objects[dynamic_object_count].x = player_x;
+                dynamic_objects[dynamic_object_count].z = player_z;
+                dynamic_objects[dynamic_object_count].style = player_style_global;
+                dynamic_object_count++;
+                add_log("[Game] New object spawned at player position.");
+            }
         }
     }
 }
@@ -46,6 +137,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 char game_logs[MAX_LOG_LINES][LOG_LINE_LENGTH];
 int log_count = 0;
+int show_console = 0; // 0: hidden, 1: visible
 
 void add_log(const char* msg) {
     if (log_count < MAX_LOG_LINES) {
@@ -158,9 +250,17 @@ int main() {
     add_log("[ChaosForge] Initializing ODE physics...");
 
     // Training phase
-    int player_style = rand() % 4;
-    int master_style = player_style; // Master matches player style
-    player_style_global = player_style;
+    // Menu loop
+    while (!glfwWindowShouldClose(window) && in_menu) {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        draw_background();
+        draw_menu();
+        if (show_console) render_logs();
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+    int player_style = player_style_global;
+    int master_style = player_style;
     char logbuf[LOG_LINE_LENGTH];
     snprintf(logbuf, LOG_LINE_LENGTH, "[Training] Welcome! You must defeat the master (%s) to earn your entrance exam ticket.", get_style_name(master_style));
     add_log(logbuf);
@@ -169,7 +269,9 @@ int main() {
     while (!glfwWindowShouldClose(window) && !passed_exam) {
         glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        draw_background();
         render_scene(NULL, 1, master_style, player_style);
+        if (show_console) render_logs();
         glfwSwapBuffers(window);
         glfwPollEvents();
         training_ticks++;
@@ -195,9 +297,9 @@ int main() {
         double frame_start = glfwGetTime();
         glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        // Real-time update: objects can be generated/modified here as user codes them in
+        draw_background();
         render_scene(&state, 0, 0, 0);
-        render_logs();
+        if (show_console) render_logs();
         update_game(&state, tick);
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -205,7 +307,6 @@ int main() {
         double frame_end = glfwGetTime();
         double elapsed = frame_end - frame_start;
         if (elapsed < target_frame_time) {
-            // Sleep to maintain 120 FPS
             struct timespec ts;
             ts.tv_sec = 0;
             ts.tv_nsec = (long)((target_frame_time - elapsed) * 1e9);
