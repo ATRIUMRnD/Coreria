@@ -105,6 +105,9 @@ int player_style_global = 0;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        if (key == GLFW_KEY_F12 && action == GLFW_PRESS) {
+            show_console = !show_console;
+        }
         if (in_menu) {
             if (key == GLFW_KEY_UP) selected_style = (selected_style + 3) % 4;
             if (key == GLFW_KEY_DOWN) selected_style = (selected_style + 1) % 4;
@@ -145,37 +148,19 @@ void add_log(const char* msg) {
         game_logs[log_count][LOG_LINE_LENGTH-1] = '\0';
         log_count++;
     } else {
-        // Scroll logs up
-        for (int i = 1; i < MAX_LOG_LINES; ++i)
-            strcpy(game_logs[i-1], game_logs[i]);
-        strncpy(game_logs[MAX_LOG_LINES-1], msg, LOG_LINE_LENGTH-1);
-        game_logs[MAX_LOG_LINES-1][LOG_LINE_LENGTH-1] = '\0';
-    }
-}
-
-void render_logs() {
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    gluOrtho2D(0, 800, 0, 600);
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glColor3f(1,1,1);
-    for (int i = 0; i < log_count; ++i) {
-        glRasterPos2i(10, 580 - i*18);
-        for (int j = 0; game_logs[i][j] != '\0'; ++j)
-            glutBitmapCharacter(GLUT_BITMAP_8_BY_13, game_logs[i][j]);
-    }
-    glPopMatrix();
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-}
-// ChaosForge main game loop with 3D base plate, training, bots, and synchronized output
-#include <stdio.h>
-#include <stdlib.h>
-#include <GLFW/glfw3.h>
+            // Menu loop
+            while (!glfwWindowShouldClose(window) && in_menu) {
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                draw_background();
+                draw_menu();
+                if (show_console) render_logs();
+                glfwSwapBuffers(window);
+                glfwPollEvents();
+            }
+            // Spawn player in lobby on base plate
+            player_x = 0.0f;
+            player_z = 0.0f;
+            int player_style = player_style_global;
 #include <GL/glut.h>
 #include <math.h>
 #include "player_controller.h"
@@ -313,8 +298,10 @@ int main() {
             nanosleep(&ts, NULL);
         }
     }
-    // Clean exit when window is closed
-    glfwDestroyWindow(window);
-    glfwTerminate();
-    return 0;
+        // Graceful shutdown: clean up resources and exit
+        add_log("[ChaosForge] Shutting down gracefully...");
+        // Add any additional cleanup here (free memory, close files, etc.)
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        exit(0);
 }
