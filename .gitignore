@@ -1,2 +1,28 @@
 # Ignore Rust/Cargo build artifacts
 target/
+
+# Ignore dependency directories
+/target/
+
+# Ignore generated binary artifacts
+/*.rs.bk
+
+# Ignore test results
+/target/debug/.fingerprint/
+/target/debug/build/
+/target/debug/deps/
+/target/debug/examples/
+
+# Ignore release artifacts
+/target/release/.fingerprint/
+/target/release/build/
+/target/release/deps/
+/target/release/examples/
+
+# Ignore documentation
+/target/doc/
+
+# Ignore editor and OS files
+.DS_Store
+.idea/
+.vscode/

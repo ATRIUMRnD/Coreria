@@ -6,3 +6,12 @@ edition = "2021"
 [dependencies]
 gl = "0.14"
 bevy = "0.13"
+# .cargo/config.toml
+[build]
+rustc-wrapper = "sccache"
+# .cargo/config.toml
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+# .cargo/config.toml
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "linker=clang", "-C", "link-arg=-fuse-ld=lld"]
