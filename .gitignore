@@ -1,2 +1,2 @@
 # Ignore Rust/Cargo build artifacts
-/target/
+target/
