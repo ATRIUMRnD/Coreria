@@ -4,6 +4,7 @@
 #include "combat_system.h"
 #include "physics_manager.h"
 #include "game_state.h"
+#include <GL/glut.h>
 
 int main() {
     coreria_engine_init();  // ChaosForge runs on Coreria engine
