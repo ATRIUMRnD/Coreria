@@ -35,3 +35,5 @@ void update_game(GameState* state, int tick) {
         state->winner_style = state->players[last_alive].style;
     }
 }
+
+

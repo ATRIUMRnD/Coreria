@@ -20,3 +20,4 @@ typedef struct {
 
 void init_game_state(GameState* state);
 void update_game(GameState* state, int tick);
+void spawn_players(GameState* state);
