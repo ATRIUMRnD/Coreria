@@ -105,6 +105,8 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
 void copy_to_clipboard(const char* text);
 void glut_sphere_approx(float radius, int subdivisions);
 void update_game_logic(void);
+void update_player_movement(void);
+void handle_mouse_input(int x, int y);
 void render_frame(void);
 BOOL init_opengl(HWND hWnd);
 void cleanup_opengl(void);
@@ -402,17 +404,28 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
     gluPerspective(60.0, (double)WINDOW_WIDTH/(double)WINDOW_HEIGHT, 0.1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    float target_x = 0.0f, target_z = 0.0f;
-    if (cam_follow_player && state) {
-        // Follow player 0
+    
+    // Set camera target based on game state
+    float cam_target_x = 0.0f, cam_target_z = 0.0f;
+    if (training_phase && !in_menu) {
+        // In training mode, center on player position
+        cam_target_x = player_x;
+        cam_target_z = player_z;
+    } else if (cam_follow_player && state) {
+        // Follow player 0 in main game
         float angle = 0 * (2 * M_PI / MAX_PLAYERS);
-        target_x = 7.0f * cos(angle);
-        target_z = 7.0f * sin(angle);
+        cam_target_x = 7.0f * cos(angle);
+        cam_target_z = 7.0f * sin(angle);
     }
-    float cam_x = target_x + cam_radius * cos(cam_angle);
+    
+    // Apply camera panning
+    cam_target_x += cam_pan_x;
+    cam_target_z += cam_pan_z;
+    
+    float cam_x = cam_target_x + cam_radius * cos(cam_angle);
     float cam_y = cam_height;
-    float cam_z = target_z + cam_radius * sin(cam_angle);
-    gluLookAt(cam_x, cam_y, cam_z, target_x, 0.0f, target_z, 0.0f, 1.0f, 0.0f);
+    float cam_z = cam_target_z + cam_radius * sin(cam_angle);
+    gluLookAt(cam_x, cam_y, cam_z, cam_target_x, 0.0f, cam_target_z, 0.0f, 1.0f, 0.0f);
     // Draw base plate
     draw_base_plate();
     if (training_phase) {
@@ -515,6 +528,70 @@ void update_game_logic(void) {
     }
 }
 
+void update_player_movement(void) {
+    if (!player_can_move || in_menu) return;
+    
+    // Keyboard movement (WASD for player, Arrow keys for camera)
+    float move_x = 0.0f, move_z = 0.0f;
+    
+    if (keys['W']) move_z -= player_speed;
+    if (keys['S']) move_z += player_speed;
+    if (keys['A']) move_x -= player_speed;
+    if (keys['D']) move_x += player_speed;
+    
+    // Apply movement with momentum
+    player_vel_x = player_vel_x * player_friction + move_x;
+    player_vel_z = player_vel_z * player_friction + move_z;
+    
+    // Update player position
+    player_x += player_vel_x;
+    player_z += player_vel_z;
+    
+    // Keep player within bounds (-15 to 15)
+    if (player_x < -15.0f) { player_x = -15.0f; player_vel_x = 0.0f; }
+    if (player_x > 15.0f) { player_x = 15.0f; player_vel_x = 0.0f; }
+    if (player_z < -15.0f) { player_z = -15.0f; player_vel_z = 0.0f; }
+    if (player_z > 15.0f) { player_z = 15.0f; player_vel_z = 0.0f; }
+    
+    // Camera movement with arrow keys
+    if (keys[VK_LEFT]) cam_angle -= 0.03f;
+    if (keys[VK_RIGHT]) cam_angle += 0.03f;
+    if (keys[VK_UP]) cam_height += 0.1f;
+    if (keys[VK_DOWN]) cam_height -= 0.1f;
+    
+    // Limit camera height
+    if (cam_height < 2.0f) cam_height = 2.0f;
+    if (cam_height > 25.0f) cam_height = 25.0f;
+}
+
+void handle_mouse_input(int x, int y) {
+    if (mouse_last_x == -1) {
+        mouse_last_x = x;
+        mouse_last_y = y;
+        return;
+    }
+    
+    int dx = x - mouse_last_x;
+    int dy = y - mouse_last_y;
+    
+    // Right mouse button: camera rotation
+    if (mouse_right_down) {
+        cam_angle += dx * 0.01f;
+        cam_height -= dy * 0.1f;
+        if (cam_height < 2.0f) cam_height = 2.0f;
+        if (cam_height > 25.0f) cam_height = 25.0f;
+    }
+    
+    // Left mouse button: camera pan
+    if (mouse_left_down) {
+        cam_pan_x += dx * 0.05f;
+        cam_pan_z += dy * 0.05f;
+    }
+    
+    mouse_last_x = x;
+    mouse_last_y = y;
+}
+
 BOOL init_opengl(HWND hWnd) {
     PIXELFORMATDESCRIPTOR pfd = {
         sizeof(PIXELFORMATDESCRIPTOR),
@@ -588,7 +665,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                         if (in_menu) {
                             player_style_global = selected_style;
                             in_menu = 0;
+                            player_can_move = 1;  // Enable player movement
                             printf("[DEBUG] Selected %s, starting game...\n", fighting_styles[selected_style]);
+                            printf("[DEBUG] Movement controls: WASD to move, Arrow keys for camera, Mouse for camera control\n");
                         }
                         break;
                     case 'C':
@@ -614,23 +693,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                         if (in_menu) {
                             selected_style = (selected_style + 3) % 4;
                             printf("[DEBUG] Menu selection: %s\n", fighting_styles[selected_style]);
-                        } else {
-                            cam_height += 0.5f;
                         }
                         break;
                     case VK_DOWN:
                         if (in_menu) {
                             selected_style = (selected_style + 1) % 4;
                             printf("[DEBUG] Menu selection: %s\n", fighting_styles[selected_style]);
-                        } else {
-                            cam_height -= 0.5f;
                         }
-                        break;
-                    case VK_LEFT:
-                        if (!in_menu) cam_angle -= 0.1f;
-                        break;
-                    case VK_RIGHT:
-                        if (!in_menu) cam_angle += 0.1f;
                         break;
                     case VK_ESCAPE:
                         running = 0;
@@ -644,6 +713,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         case WM_KEYUP:
             keys[wParam] = FALSE;
             last_keys[wParam] = 0;
+            break;
+            
+        case WM_LBUTTONDOWN:
+            mouse_left_down = 1;
+            SetCapture(hWnd);
+            break;
+            
+        case WM_LBUTTONUP:
+            mouse_left_down = 0;
+            ReleaseCapture();
+            break;
+            
+        case WM_RBUTTONDOWN:
+            mouse_right_down = 1;
+            SetCapture(hWnd);
+            break;
+            
+        case WM_RBUTTONUP:
+            mouse_right_down = 0;
+            ReleaseCapture();
+            break;
+            
+        case WM_MOUSEMOVE:
+            handle_mouse_input(LOWORD(lParam), HIWORD(lParam));
+            break;
+            
+        case WM_MOUSEWHEEL:
+            {
+                int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+                cam_radius -= delta / 120.0f;  // 120 is standard wheel delta
+                if (cam_radius < 5.0f) cam_radius = 5.0f;
+                if (cam_radius > 50.0f) cam_radius = 50.0f;
+                printf("[DEBUG] Camera zoom: %.1f\n", cam_radius);
+            }
             break;
             
         case WM_SIZE:
@@ -725,11 +828,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             DispatchMessage(&msg);
         }
 
-        // Handle continuous input
-        if (keys['W']) cam_pan_z -= 0.2f;
-        if (keys['S']) cam_pan_z += 0.2f;
-        if (keys['A']) cam_pan_x -= 0.2f;
-        if (keys['D']) cam_pan_x += 0.2f;
+        // Update player movement and camera
+        update_player_movement();
 
         // Update and render at ~60 FPS
         DWORD currentTime = GetTickCount();
