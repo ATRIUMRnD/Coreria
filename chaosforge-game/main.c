@@ -76,7 +76,7 @@ void draw_menu() {
 }
 // Prototype for add_log to fix implicit declaration
 void add_log(const char* msg);
-
+ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <GLFW/glfw3.h>
@@ -179,13 +179,24 @@ void draw_base_plate() {
 }
 
 void draw_player(float x, float z, int style, int is_master) {
-    if (is_master)
-        glColor3f(1.0f, 0.8f, 0.2f);
-    else
-        glColor3f(0.2f + 0.2f * style, 0.5f, 0.8f - 0.2f * style);
     glPushMatrix();
     glTranslatef(x, 0.5f, z);
-    glutSolidSphere(0.5, 16, 16);
+    if (is_master) {
+        glColor3f(1.0f, 0.8f, 0.2f);
+        glutSolidSphere(0.6, 20, 20);
+    } else if (style == 99) { // respawn flash
+        glColor3f(1.0f, 1.0f, 0.0f);
+        glutSolidSphere(0.7, 20, 20);
+    } else if (style == 98) { // attack flash
+        glColor3f(1.0f, 0.0f, 0.0f);
+        glutSolidSphere(0.7, 20, 20);
+    } else if (is_master == 2) { // bot
+        glColor3f(0.2f + 0.2f * style, 0.5f, 0.8f - 0.2f * style);
+        glutSolidCube(0.8);
+    } else {
+        glColor3f(0.2f + 0.2f * style, 0.5f, 0.8f - 0.2f * style);
+        glutSolidSphere(0.5, 16, 16);
+    }
     glPopMatrix();
 }
 
@@ -196,7 +207,17 @@ void draw_dynamic_objects() {
 }
 
 void render_scene(GameState* state, int training_phase, int master_style, int player_style) {
-    draw_base_plate();
+    // Example: shrink arena visually based on tick
+    static float arena_scale = 1.0f;
+    if (state && state->arena_shrink_tick > 0) {
+        arena_scale = 1.0f - 0.1f * state->arena_shrink_tick;
+        glPushMatrix();
+        glScalef(arena_scale, 1.0f, arena_scale);
+        draw_base_plate();
+        glPopMatrix();
+    } else {
+        draw_base_plate();
+    }
     if (training_phase) {
         draw_player(player_x, player_z, player_style, 0); // player
         draw_player(0.0f, 5.0f, master_style, 1);  // master
@@ -206,29 +227,36 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
             float angle = i * (2 * M_PI / MAX_PLAYERS);
             float x = 7.0f * cos(angle);
             float z = 7.0f * sin(angle);
-            draw_player(x, z, state->players[i].style, 0);
+            int is_bot = 2;
+            draw_player(x, z, state->players[i].style, is_bot);
         }
         draw_dynamic_objects();
     }
 }
 
 int main() {
+    fprintf(stderr, "[DEBUG] Starting ChaosForge Arena...\n");
     if (!glfwInit()) {
-        fprintf(stderr, "Failed to initialize GLFW\n");
+        fprintf(stderr, "[ERROR] Failed to initialize GLFW\n");
         return -1;
+    } else {
+        fprintf(stderr, "[DEBUG] GLFW initialized successfully.\n");
     }
     GLFWwindow* window = glfwCreateWindow(800, 600, "ChaosForge Arena", NULL, NULL);
-    glfwSetKeyCallback(window, key_callback);
     if (!window) {
-        fprintf(stderr, "Failed to create GLFW window\n");
+        fprintf(stderr, "[ERROR] Failed to create GLFW window\n");
         glfwTerminate();
         return -1;
+    } else {
+        fprintf(stderr, "[DEBUG] GLFW window created successfully.\n");
     }
-
+    glfwSetKeyCallback(window, key_callback);
     glfwMakeContextCurrent(window);
+    fprintf(stderr, "[DEBUG] OpenGL context made current.\n");
     int fake_argc = 1;
     char *fake_argv[] = { "chaosforge", NULL };
     glutInit(&fake_argc, fake_argv);
+    fprintf(stderr, "[DEBUG] GLUT initialized.\n");
     add_log("[ChaosForge] Window opened: 800x600");
     add_log("[ChaosForge] Initializing Coreria engine...");
     add_log("[ChaosForge] Loading arena: chaosforge_coliseum.obj");
