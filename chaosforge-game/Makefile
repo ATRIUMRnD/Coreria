@@ -2,13 +2,27 @@ CC=gcc
 CFLAGS=-Wall
 OBJS=main.o player_controller.o combat_system.o physics_manager.o game_state.o
 
-all: chaosforge
+# Windows build (MinGW/MSYS2)
+ifeq ($(OS),Windows_NT)
+    LIBS=-lopengl32 -lglu32 -lgdi32 -luser32 -lkernel32 -lm
+    TARGET=chaosforge.exe
+    RM=del
+else
+    # Linux/Unix build (would need GLFW/GLUT installed)
+    LIBS=-lGL -lGLU -lglfw3 -lglut -lm
+    TARGET=chaosforge
+    RM=rm -f
+endif
 
-chaosforge: $(OBJS)
-	$(CC) -o chaosforge $(OBJS) -lode -lGL -lglfw -lGLU -lglut -lm
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) -o $(TARGET) $(OBJS) $(LIBS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $<
 
 clean:
-	rm -f *.o chaosforge
+	$(RM) *.o $(TARGET)
+
+.PHONY: all clean
