@@ -1,3 +1,62 @@
+// Particle system for attack/respawn effects
+#define MAX_PARTICLES 64
+typedef struct {
+    float x, y, z;
+    float vx, vy, vz;
+    int life;
+    int type; // 0: attack, 1: respawn
+} Particle;
+Particle particles[MAX_PARTICLES];
+int particle_count = 0;
+
+void spawn_particles(float x, float z, int type) {
+    for (int i = 0; i < 8 && particle_count < MAX_PARTICLES; ++i) {
+        float angle = (float)i * (2 * M_PI / 8);
+        particles[particle_count].x = x;
+        particles[particle_count].y = 0.7f;
+        particles[particle_count].z = z;
+        particles[particle_count].vx = 0.1f * cos(angle);
+        particles[particle_count].vy = 0.08f;
+        particles[particle_count].vz = 0.1f * sin(angle);
+        particles[particle_count].life = 20;
+        particles[particle_count].type = type;
+        particle_count++;
+    }
+}
+
+void update_particles() {
+    for (int i = 0; i < particle_count; ++i) {
+        particles[i].x += particles[i].vx;
+        particles[i].y += particles[i].vy;
+        particles[i].z += particles[i].vz;
+        particles[i].vy -= 0.005f; // gravity
+        particles[i].life--;
+        if (particles[i].life <= 0) {
+            // Remove particle
+            particles[i] = particles[particle_count-1];
+            particle_count--;
+            i--;
+        }
+    }
+}
+
+void draw_particles() {
+    for (int i = 0; i < particle_count; ++i) {
+        glPushMatrix();
+        glTranslatef(particles[i].x, particles[i].y, particles[i].z);
+        if (particles[i].type == 0)
+            glColor3f(1,0,0); // attack: red
+        else
+            glColor3f(1,1,0); // respawn: yellow
+        glutSolidSphere(0.12, 8, 8);
+        glPopMatrix();
+    }
+}
+// Camera controls
+float cam_angle = 0.0f;
+float cam_radius = 18.0f;
+float cam_height = 8.0f;
+int cam_follow_player = 0;
 #include <GLFW/glfw3.h>
 #include <GL/glut.h>
 #include <GL/glu.h>
@@ -120,6 +179,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
                 add_log("[Menu] Style copied to clipboard.");
             }
         } else {
+            // Camera controls
+            if (key == GLFW_KEY_LEFT) cam_angle -= 0.1f;
+            if (key == GLFW_KEY_RIGHT) cam_angle += 0.1f;
+            if (key == GLFW_KEY_UP) cam_height += 0.5f;
+            if (key == GLFW_KEY_DOWN) cam_height -= 0.5f;
+            if (key == GLFW_KEY_PAGE_UP) cam_radius -= 1.0f;
+            if (key == GLFW_KEY_PAGE_DOWN) cam_radius += 1.0f;
+            if (key == GLFW_KEY_F) cam_follow_player = !cam_follow_player;
+            }
+        } else {
             if (key == GLFW_KEY_W) player_z += 0.5f;
             if (key == GLFW_KEY_S) player_z -= 0.5f;
             if (key == GLFW_KEY_A) player_x -= 0.5f;
@@ -181,22 +250,46 @@ void draw_base_plate() {
 void draw_player(float x, float z, int style, int is_master) {
     glPushMatrix();
     glTranslatef(x, 0.5f, z);
-    if (is_master) {
+    float r = 0.2f + 0.2f * style;
+    float g = 0.5f;
+    float b = 0.8f - 0.2f * style;
+    if (attack_anim > 0) {
+        glColor3f(1.0f, 0.0f, 0.0f); // attack flash
+    } else if (respawn_anim > 0) {
+        glColor3f(1.0f, 1.0f, 0.0f); // respawn flash
+    } else if (is_master) {
         glColor3f(1.0f, 0.8f, 0.2f);
-        glutSolidSphere(0.6, 20, 20);
-    } else if (style == 99) { // respawn flash
-        glColor3f(1.0f, 1.0f, 0.0f);
-        glutSolidSphere(0.7, 20, 20);
-    } else if (style == 98) { // attack flash
-        glColor3f(1.0f, 0.0f, 0.0f);
-        glutSolidSphere(0.7, 20, 20);
-    } else if (is_master == 2) { // bot
-        glColor3f(0.2f + 0.2f * style, 0.5f, 0.8f - 0.2f * style);
+    } else {
+        // Color based on health
+        float health_frac = health / 100.0f;
+        glColor3f(r * health_frac + (1-health_frac)*1.0f, g * health_frac, b * health_frac);
+    }
+    if (is_master == 2) {
         glutSolidCube(0.8);
     } else {
-        glColor3f(0.2f + 0.2f * style, 0.5f, 0.8f - 0.2f * style);
         glutSolidSphere(0.5, 16, 16);
     }
+    // Draw health bar
+    glPushMatrix();
+    glTranslatef(0, 0.7f, 0);
+    glColor3f(0.2f, 0.9f, 0.2f);
+    glBegin(GL_QUADS);
+    glVertex3f(-0.3f, 0.0f, 0.0f);
+    glVertex3f(-0.3f + 0.6f * (health/100.0f), 0.0f, 0.0f);
+    glVertex3f(-0.3f + 0.6f * (health/100.0f), 0.05f, 0.0f);
+    glVertex3f(-0.3f, 0.05f, 0.0f);
+    glEnd();
+    glPopMatrix();
+    // Draw floating text (name, style, lives)
+    glPushMatrix();
+    glTranslatef(0, 1.0f, 0);
+    glColor3f(1,1,1);
+    char info[64];
+    snprintf(info, sizeof(info), "Player %s | %s | Lives: %d", is_master ? "Master" : "Bot", fighting_styles[style], lives);
+    glRasterPos3f(-0.4f, 0.0f, 0.0f);
+    for (int i = 0; info[i] != '\0'; ++i)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, info[i]);
+    glPopMatrix();
     glPopMatrix();
 }
 
@@ -207,6 +300,25 @@ void draw_dynamic_objects() {
 }
 
 void render_scene(GameState* state, int training_phase, int master_style, int player_style) {
+    // Draw particles
+    draw_particles();
+    // Camera setup
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(60.0, 800.0/600.0, 0.1, 100.0);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    float target_x = 0.0f, target_z = 0.0f;
+    if (cam_follow_player && state) {
+        // Follow player 0
+        float angle = 0 * (2 * M_PI / MAX_PLAYERS);
+        target_x = 7.0f * cos(angle);
+        target_z = 7.0f * sin(angle);
+    }
+    float cam_x = target_x + cam_radius * cos(cam_angle);
+    float cam_y = cam_height;
+    float cam_z = target_z + cam_radius * sin(cam_angle);
+    gluLookAt(cam_x, cam_y, cam_z, target_x, 0.0f, target_z, 0.0f, 1.0f, 0.0f);
     // Example: shrink arena visually based on tick
     static float arena_scale = 1.0f;
     if (state && state->arena_shrink_tick > 0) {
@@ -219,8 +331,8 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
         draw_base_plate();
     }
     if (training_phase) {
-        draw_player(player_x, player_z, player_style, 0); // player
-        draw_player(0.0f, 5.0f, master_style, 1);  // master
+        draw_player(player_x, player_z, player_style, 0, 100, 0, 0, 2); // player
+        draw_player(0.0f, 5.0f, master_style, 1, 100, 0, 0, 2);  // master
         draw_dynamic_objects();
     } else {
         for (int i = 0; i < MAX_PLAYERS; ++i) {
@@ -228,7 +340,11 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
             float x = 7.0f * cos(angle);
             float z = 7.0f * sin(angle);
             int is_bot = 2;
-            draw_player(x, z, state->players[i].style, is_bot);
+            int health = state->players[i].health;
+            int attack_anim = state->attack_anim[i];
+            int respawn_anim = state->respawn_anim[i];
+            int lives = state->players[i].lives;
+            draw_player(x, z, state->players[i].style, is_bot, health, attack_anim, respawn_anim, lives);
         }
         draw_dynamic_objects();
     }
@@ -314,6 +430,28 @@ int main() {
         render_scene(&state, 0, 0, 0);
         if (show_console) render_logs();
         update_game(&state, tick);
+        // Decrement animation timers and spawn particles
+        for (int i = 0; i < MAX_PLAYERS; ++i) {
+            if (state.attack_anim[i] > 0) {
+                state.attack_anim[i]--;
+                if (state.attack_anim[i] == 9) {
+                    float angle = i * (2 * M_PI / MAX_PLAYERS);
+                    float x = 7.0f * cos(angle);
+                    float z = 7.0f * sin(angle);
+                    spawn_particles(x, z, 0);
+                }
+            }
+            if (state.respawn_anim[i] > 0) {
+                state.respawn_anim[i]--;
+                if (state.respawn_anim[i] == 19) {
+                    float angle = i * (2 * M_PI / MAX_PLAYERS);
+                    float x = 7.0f * cos(angle);
+                    float z = 7.0f * sin(angle);
+                    spawn_particles(x, z, 1);
+                }
+            }
+        }
+        update_particles();
         glfwSwapBuffers(window);
         glfwPollEvents();
         tick++;

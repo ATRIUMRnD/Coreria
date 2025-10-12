@@ -13,6 +13,8 @@ void init_game_state(GameState* state) {
         state->players[i].lives = 2;
         state->players[i].health = 100;
         state->players[i].meter = 0;
+        state->attack_anim[i] = 0;
+        state->respawn_anim[i] = 0;
     }
 }
 
