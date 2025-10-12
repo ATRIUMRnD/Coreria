@@ -1,16 +1,30 @@
-// ChaosForge Arena - Windows OpenGL Version
 #define _USE_MATH_DEFINES
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#ifdef _WIN32
+#include <GL/gl.h>
+#include <GL/glu.h>
+#endif
+#include <GLFW/glfw3.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include "player_controller.h"
 #include "combat_system.h"
 #include "physics_manager.h"
 #include "game_state.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 // Constants
 #define MAX_PARTICLES 64
@@ -35,6 +49,12 @@ typedef struct {
 // Global variables
 // GLFW window pointer (for cross-platform input)
 void* window; // Use GLFWwindow* in real code
+// Windows OpenGL context variables
+#ifdef _WIN32
+HDC hdc;
+HWND hwnd;
+HGLRC hglrc;
+#endif
 Particle particles[MAX_PARTICLES];
 int particle_count = 0;
 DynamicObject dynamic_objects[MAX_DYNAMIC_OBJECTS];
@@ -46,6 +66,8 @@ int log_count = 0;
 float cam_angle = 0.0f;
 float cam_radius = 18.0f;
 float cam_height = 8.0f;
+float cam_pan_x = 0.0f, cam_pan_z = 0.0f;
+float target_x = 0.0f, target_z = 0.0f;
 int cam_follow_player = 0;
 int mouse_left_down = 0;
 int mouse_last_x = -1, mouse_last_y = -1;
@@ -84,7 +106,7 @@ void spawn_particles(float x, float z, int type) {
 }
 void update_particles(void);
 void draw_particles(void);
-void add_log(const char* msg);
+int add_log(const char* msg);
 void render_logs(void);
 void draw_background(void);
 void draw_menu(void);
@@ -93,6 +115,14 @@ void draw_player(float x, float z, int style, int is_master, int health, int att
 void draw_dynamic_objects(void);
 void render_scene(GameState* state, int training_phase, int master_style, int player_style);
 void copy_to_clipboard(const char* text);
+
+void key_callback(int key, int action) {
+    if (action == 1 /* GLFW_PRESS */) {
+        switch (key) {
+            case 'W': cam_pan_z -= 1.0f; break;
+            case 'S': cam_pan_z += 1.0f; break;
+            case 'A': cam_pan_x -= 1.0f; break;
+            case 'D': cam_pan_x += 1.0f; break;
             case 256: running = 0; break; // GLFW_KEY_ESCAPE
             case 257: // GLFW_KEY_ENTER
                 if (in_menu) { player_style_global = selected_style; in_menu = 0; }
@@ -212,6 +242,8 @@ void draw_base_plate(void) {
 }
 
 void draw_player(float x, float z, int style, int is_master, int health, int attack_anim, int respawn_anim, int lives) {
+    (void)is_master;
+    (void)lives;
     glPushMatrix();
     glTranslatef(x, 1.0f, z);
 
@@ -290,6 +322,7 @@ void draw_player(float x, float z, int style, int is_master, int health, int att
 }
 
 void copy_to_clipboard(const char* text) {
+    (void)text;
 #ifdef _WIN32
     if (OpenClipboard(NULL)) {
         EmptyClipboard();
@@ -550,82 +583,46 @@ int init_opengl(void) {
 
 // Main function
 int main(int argc, char** argv) {
+    (void)argc;
+    (void)argv;
     printf("[DEBUG] Starting ChaosForge Arena...\n");
 
-    // Register window class
-    WNDCLASS wc = {0};
-    wc.lpfnWndProc = WindowProc;
-    wc.hInstance = GetModuleHandle(NULL);
-    wc.lpszClassName = "ChaosForgeWindow";
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-
-    if (!RegisterClass(&wc)) {
-        printf("[ERROR] Failed to register window class\n");
+    // Initialize GLFW
+    if (!glfwInit()) {
+        fprintf(stderr, "[ERROR] Failed to initialize GLFW\n");
         return -1;
     }
+
+    // Set OpenGL version (3.3 Core for compatibility)
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Create window
-    hwnd = CreateWindow("ChaosForgeWindow", "ChaosForge Arena",
-                        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                        100, 100, 800, 600,
-                        NULL, NULL, GetModuleHandle(NULL), NULL);
-
-    if (!hwnd) {
-        printf("[ERROR] Failed to create window\n");
+    GLFWwindow* window = glfwCreateWindow(800, 600, "ChaosForge Arena", NULL, NULL);
+    if (!window) {
+        fprintf(stderr, "[ERROR] Failed to create GLFW window\n");
+        glfwTerminate();
         return -1;
     }
+    glfwMakeContextCurrent(window);
 
-    // Get device context
-    hdc = GetDC(hwnd);
-    if (!hdc) {
-        printf("[ERROR] Failed to get device context\n");
-        return -1;
-    }
+    // Enable VSync
+    glfwSwapInterval(1);
 
-    // Initialize OpenGL
-    if (!init_opengl()) {
-        printf("[ERROR] Failed to initialize OpenGL\n");
-        return -1;
-    }
+    // Main loop
+    while (!glfwWindowShouldClose(window)) {
+        // Update game logic and render
+        update_game_logic();
+        render_frame();
 
-    printf("[DEBUG] OpenGL initialized successfully.\n");
-
-    add_log("[ChaosForge] Window opened: 800x600");
-    add_log("[ChaosForge] Initializing Coreria engine...");
-    add_log("[ChaosForge] Loading arena: chaosforge_coliseum.obj");
-    add_log("[ChaosForge] Initializing ODE physics...");
-
-    // Set up training phase
-    player_x = 0.0f;
-    player_z = 0.0f;
-    master_style = 0;
-
-    // Main message loop
-    MSG msg;
-    DWORD last_time = GetTickCount();
-
-    while (running) {
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-
-        DWORD current_time = GetTickCount();
-        if (current_time - last_time >= 16) { // ~60 FPS
-            update_game_logic();
-            render_frame();
-            last_time = current_time;
-        }
-
-        Sleep(1); // Prevent 100% CPU usage
+        // Swap buffers and poll events
+        glfwSwapBuffers(window);
+        glfwPollEvents();
     }
 
     // Cleanup
-    wglMakeCurrent(NULL, NULL);
-    wglDeleteContext(hglrc);
-    ReleaseDC(hwnd, hdc);
-    DestroyWindow(hwnd);
-
+    glfwDestroyWindow(window);
+    glfwTerminate();
     return 0;
 }
