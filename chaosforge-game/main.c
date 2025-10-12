@@ -48,13 +48,10 @@ typedef struct {
 
 // Global variables
 // GLFW window pointer (for cross-platform input)
-void* window; // Use GLFWwindow* in real code
-// Windows OpenGL context variables
-#ifdef _WIN32
-HDC hdc;
-HWND hwnd;
-HGLRC hglrc;
-#endif
+    // GLFW input state
+    static int keys[GLFW_KEY_LAST + 1] = {0};
+    static int mouse_buttons[GLFW_MOUSE_BUTTON_LAST + 1] = {0};
+    static double mouse_x = 0.0, mouse_y = 0.0;
 Particle particles[MAX_PARTICLES];
 int particle_count = 0;
 DynamicObject dynamic_objects[MAX_DYNAMIC_OBJECTS];
@@ -115,37 +112,125 @@ void draw_player(float x, float z, int style, int is_master, int health, int att
 void draw_dynamic_objects(void);
 void render_scene(GameState* state, int training_phase, int master_style, int player_style);
 void copy_to_clipboard(const char* text);
-
-void key_callback(int key, int action) {
-    if (action == 1 /* GLFW_PRESS */) {
-        switch (key) {
-            case 'W': cam_pan_z -= 1.0f; break;
-            case 'S': cam_pan_z += 1.0f; break;
-            case 'A': cam_pan_x -= 1.0f; break;
-            case 'D': cam_pan_x += 1.0f; break;
-            case 256: running = 0; break; // GLFW_KEY_ESCAPE
-            case 257: // GLFW_KEY_ENTER
-                if (in_menu) { player_style_global = selected_style; in_menu = 0; }
-                break;
-            case 67: // 'C'
-                if (in_menu) { copy_to_clipboard(fighting_styles[selected_style]); add_log("[Menu] Style copied to clipboard."); }
-                break;
-            case 32: // Space
-                if (!in_menu && dynamic_object_count < MAX_DYNAMIC_OBJECTS) {
-                    dynamic_objects[dynamic_object_count].x = player_x;
-                    dynamic_objects[dynamic_object_count].z = player_z;
-                    dynamic_objects[dynamic_object_count].style = player_style_global;
-                    dynamic_object_count++;
-                    add_log("[Game] New object spawned at player position.");
-                }
-                break;
-            case 70: show_console = !show_console; break; // 'F'
-            case 265: if (in_menu) selected_style = (selected_style + 3) % 4; else cam_height += 0.5f; break; // GLFW_KEY_UP
-            case 264: if (in_menu) selected_style = (selected_style + 1) % 4; else cam_height -= 0.5f; break; // GLFW_KEY_DOWN
-            case 263: if (!in_menu) cam_angle -= 0.1f; break; // GLFW_KEY_LEFT
-            case 262: if (!in_menu) cam_angle += 0.1f; break; // GLFW_KEY_RIGHT
+void glut_sphere_approx(float radius, int subdivisions);
+// Stub implementations for missing functions
+// Log system
+void update_particles(void) {
+    // Example: update all particles' positions and lifetimes
+    for (int i = 0; i < particle_count; ++i) {
+        particles[i].x += particles[i].vx;
+        particles[i].y += particles[i].vy;
+        particles[i].z += particles[i].vz;
+        particles[i].vy -= 0.05f; // gravity
+        particles[i].life--;
+        if (particles[i].life <= 0) {
+            // Remove dead particle by swapping with last
+            particles[i] = particles[particle_count-1];
+            particle_count--;
+            i--;
         }
     }
+}
+
+void draw_particles(void) {
+    for (int i = 0; i < particle_count; ++i) {
+        if (particles[i].type == 0) glColor3f(1.0f, 0.2f, 0.2f); // attack
+        else glColor3f(1.0f, 1.0f, 0.5f); // respawn
+        glPushMatrix();
+        glTranslatef(particles[i].x, particles[i].y, particles[i].z);
+        // Simple OpenGL sphere (icosahedron as placeholder)
+        glut_sphere_approx(0.2f, 8);
+        glPopMatrix();
+    }
+}
+
+int add_log(const char* msg) {
+    if (log_count < MAX_LOG_LINES) {
+        strncpy(game_logs[log_count], msg, LOG_LINE_LENGTH-1);
+        game_logs[log_count][LOG_LINE_LENGTH-1] = '\0';
+        log_count++;
+        return 1;
+    } else {
+        // If full, shift logs up and add new
+        for (int i = 1; i < MAX_LOG_LINES; ++i) {
+            strncpy(game_logs[i-1], game_logs[i], LOG_LINE_LENGTH);
+        }
+        strncpy(game_logs[MAX_LOG_LINES-1], msg, LOG_LINE_LENGTH-1);
+        game_logs[MAX_LOG_LINES-1][LOG_LINE_LENGTH-1] = '\0';
+        return 1;
+    }
+}
+
+// OpenGL does not natively support text rendering; stub out log rendering
+void render_logs(void) {
+    // You can use a library like stb_easy_font or render nothing for now
+    // For now, just leave this empty or print to console
+    for (int i = 0; i < log_count; ++i) {
+        // printf("%s\n", game_logs[i]);
+    }
+}
+
+// Simple sphere approximation using OpenGL (icosahedron)
+void glut_sphere_approx(float radius, int subdivisions) {
+    // Draw a simple icosahedron as a placeholder for a sphere
+    glBegin(GL_TRIANGLES);
+    for (int i = 0; i < 8; ++i) {
+        float theta1 = i * M_PI / 4;
+        float theta2 = (i+1) * M_PI / 4;
+        glVertex3f(0, 0, 0);
+        glVertex3f(radius * cos(theta1), radius * sin(theta1), 0);
+        glVertex3f(radius * cos(theta2), radius * sin(theta2), 0);
+    }
+    glEnd();
+}
+
+void draw_background(void) {
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, 800, 0, 600);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glBegin(GL_QUADS);
+    glColor3f(0.1f, 0.1f, 0.3f); glVertex2i(0, 0);
+    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(800, 0);
+    glColor3f(0.3f, 0.3f, 0.7f); glVertex2i(800, 600);
+    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(0, 600);
+    glEnd();
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+}
+
+
+// GLFW key callback
+void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    (void)window;
+    (void)scancode;
+    (void)mods;
+    if (key >= 0 && key <= GLFW_KEY_LAST) {
+        if (action == GLFW_PRESS) keys[key] = 1;
+        else if (action == GLFW_RELEASE) keys[key] = 0;
+    }
+}
+
+// GLFW mouse button callback
+void glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    (void)window;
+    (void)mods;
+    if (button >= 0 && button <= GLFW_MOUSE_BUTTON_LAST) {
+        if (action == GLFW_PRESS) mouse_buttons[button] = 1;
+        else if (action == GLFW_RELEASE) mouse_buttons[button] = 0;
+    }
+}
+
+// GLFW cursor position callback
+void glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
+    (void)window;
+    mouse_x = xpos;
+    mouse_y = ypos;
 }
 
 void mouse_scroll_callback(float yoffset) {
@@ -389,85 +474,6 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
 }
 
 // Windows message handling
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    switch (uMsg) {
-        case WM_CLOSE:
-            running = 0;
-            PostQuitMessage(0);
-            return 0;
-        case WM_KEYDOWN:
-            switch (wParam) {
-                case VK_ESCAPE:
-                    running = 0;
-                    PostQuitMessage(0);
-                    break;
-                case VK_RETURN:
-                    if (in_menu) {
-                        player_style_global = selected_style;
-                        in_menu = 0;
-                    }
-                    break;
-                case 'C':
-                    if (in_menu) {
-                        copy_to_clipboard(fighting_styles[selected_style]);
-                        add_log("[Menu] Style copied to clipboard.");
-                    }
-                    break;
-                case VK_SPACE:
-                    if (!in_menu && dynamic_object_count < MAX_DYNAMIC_OBJECTS) {
-                        dynamic_objects[dynamic_object_count].x = player_x;
-                        dynamic_objects[dynamic_object_count].z = player_z;
-                        dynamic_objects[dynamic_object_count].style = player_style_global;
-                        dynamic_object_count++;
-                        add_log("[Game] New object spawned at player position.");
-                    }
-                    break;
-                case 'F':
-                    show_console = !show_console;
-                    break;
-                case VK_UP:
-                    if (in_menu) selected_style = (selected_style + 3) % 4;
-                    else cam_height += 0.5f;
-                    break;
-                case VK_DOWN:
-                    if (in_menu) selected_style = (selected_style + 1) % 4;
-                    else cam_height -= 0.5f;
-                    break;
-            }
-            return 0;
-        case WM_LBUTTONDOWN:
-            mouse_left_down = 1;
-            mouse_last_x = LOWORD(lParam);
-            mouse_last_y = HIWORD(lParam);
-            return 0;
-        case WM_LBUTTONUP:
-            mouse_left_down = 0;
-            return 0;
-        case WM_MOUSEMOVE:
-            if (mouse_left_down) {
-                int x = LOWORD(lParam);
-                int y = HIWORD(lParam);
-                int dx = x - mouse_last_x;
-                int dy = y - mouse_last_y;
-                cam_angle += dx * 0.01f;
-                cam_height += dy * 0.05f;
-                if (cam_height < 2.0f) cam_height = 2.0f;
-                if (cam_height > 30.0f) cam_height = 30.0f;
-                mouse_last_x = x;
-                mouse_last_y = y;
-            }
-            return 0;
-        case WM_MOUSEWHEEL:
-            {
-                int delta = GET_WHEEL_DELTA_WPARAM(wParam);
-                cam_radius -= delta / 120.0f;
-                if (cam_radius < 5.0f) cam_radius = 5.0f;
-                if (cam_radius > 50.0f) cam_radius = 50.0f;
-            }
-            return 0;
-    }
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
-}
 
 // Rendering function
 void render_frame(void) {
@@ -488,7 +494,6 @@ void render_frame(void) {
         render_logs();
     }
 
-    SwapBuffers(hdc);
 }
 
 // Game update function
@@ -542,44 +547,7 @@ void update_game_logic(void) {
     }
 }
 
-// OpenGL initialization
-int init_opengl(void) {
-    PIXELFORMATDESCRIPTOR pfd = {
-        sizeof(PIXELFORMATDESCRIPTOR),
-        1,
-        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-        PFD_TYPE_RGBA,
-        32,
-        0, 0, 0, 0, 0, 0,
-        0,
-        0,
-        0,
-        0, 0, 0, 0,
-        24,
-        8,
-        0,
-        PFD_MAIN_PLANE,
-        0,
-        0, 0, 0
-    };
-
-    int format = ChoosePixelFormat(hdc, &pfd);
-    if (!format) return 0;
-
-    if (!SetPixelFormat(hdc, format, &pfd)) return 0;
-
-    hglrc = wglCreateContext(hdc);
-    if (!hglrc) return 0;
-
-    if (!wglMakeCurrent(hdc, hglrc)) return 0;
-
-    // Set up OpenGL
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    return 1;
-}
+// OpenGL initialization (removed unused function)
 
 // Main function
 int main(int argc, char** argv) {
@@ -610,9 +578,41 @@ int main(int argc, char** argv) {
     // Enable VSync
     glfwSwapInterval(1);
 
+    // Set input callbacks
+    glfwSetKeyCallback(window, glfw_key_callback);
+    glfwSetMouseButtonCallback(window, glfw_mouse_button_callback);
+    glfwSetCursorPosCallback(window, glfw_cursor_position_callback);
     // Main loop
     while (!glfwWindowShouldClose(window)) {
         // Update game logic and render
+        // Handle input
+        // Example: WASD camera movement
+        if (keys[GLFW_KEY_W]) cam_pan_z -= 1.0f;
+        if (keys[GLFW_KEY_S]) cam_pan_z += 1.0f;
+        if (keys[GLFW_KEY_A]) cam_pan_x -= 1.0f;
+        if (keys[GLFW_KEY_D]) cam_pan_x += 1.0f;
+        if (keys[GLFW_KEY_ESCAPE]) running = 0;
+        if (keys[GLFW_KEY_ENTER]) {
+            if (in_menu) { player_style_global = selected_style; in_menu = 0; }
+        }
+        if (keys[GLFW_KEY_C]) {
+            if (in_menu) { copy_to_clipboard(fighting_styles[selected_style]); add_log("[Menu] Style copied to clipboard."); }
+        }
+        if (keys[GLFW_KEY_SPACE]) {
+            if (!in_menu && dynamic_object_count < MAX_DYNAMIC_OBJECTS) {
+                dynamic_objects[dynamic_object_count].x = player_x;
+                dynamic_objects[dynamic_object_count].z = player_z;
+                dynamic_objects[dynamic_object_count].style = player_style_global;
+                dynamic_object_count++;
+                add_log("[Game] New object spawned at player position.");
+            }
+        }
+        if (keys[GLFW_KEY_F]) show_console = !show_console;
+        if (keys[GLFW_KEY_UP]) { if (in_menu) selected_style = (selected_style + 3) % 4; else cam_height += 0.5f; }
+        if (keys[GLFW_KEY_DOWN]) { if (in_menu) selected_style = (selected_style + 1) % 4; else cam_height -= 0.5f; }
+        if (keys[GLFW_KEY_LEFT]) { if (!in_menu) cam_angle -= 0.1f; }
+        if (keys[GLFW_KEY_RIGHT]) { if (!in_menu) cam_angle += 0.1f; }
+
         update_game_logic();
         render_frame();
 
