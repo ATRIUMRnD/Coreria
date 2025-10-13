@@ -86,7 +86,6 @@ impl MultiplayerEngine {
         
         app
             .add_plugins(MinimalPlugins)
-            .add_plugins(bevy::time::TimePlugin)
             .add_plugins((
                 entities::PlayerPlugin,
                 physics::PhysicsPlugin,
