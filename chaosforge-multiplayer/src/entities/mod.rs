@@ -28,6 +28,8 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_event::<combat::DamageEvent>()
+            .add_event::<network::PlayerStateSync>()
             .add_systems(Update, (
                 player::update_player_physics,
                 ragdoll::update_ragdoll_bodies,

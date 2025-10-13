@@ -17,6 +17,7 @@
 #include "physics_manager.h"
 #include "game_state.h"
 #include "nanosvg.h"
+#include "chaosforge_ragdoll.h"
 
 // Constants
 #define MAX_PARTICLES 64
@@ -56,15 +57,23 @@ int dynamic_object_count = 0;
 char game_logs[MAX_LOG_LINES][LOG_LINE_LENGTH];
 int log_count = 0;
 
-// Camera and input state
+// UE5-style camera system
+float cam_pos_x = 0.0f, cam_pos_y = 8.0f, cam_pos_z = 18.0f;  // Camera position
+float cam_yaw = 0.0f, cam_pitch = -15.0f;  // Camera rotation (degrees)
+float cam_speed = 0.5f;  // Movement speed
+float cam_sensitivity = 0.1f;  // Mouse sensitivity
+int mouse_left_down = 0;
+int mouse_right_down = 0;
+int last_mouse_x = 0, last_mouse_y = 0;
+int free_camera_mode = 1;  // Always use free camera in menu
+
+// Legacy camera variables (for compatibility)
 float cam_angle = 0.0f;
 float cam_radius = 18.0f;
 float cam_height = 8.0f;
 float cam_pan_x = 0.0f, cam_pan_z = 0.0f;
 float target_x = 0.0f, target_z = 0.0f;
 int cam_follow_player = 0;
-int mouse_left_down = 0;
-int mouse_right_down = 0;
 int mouse_last_x = -1, mouse_last_y = -1;
 int show_console = 0;
 
@@ -93,6 +102,11 @@ int training_ticks = 0;
 // Key state tracking
 BOOL keys[256] = {FALSE};
 
+// Ragdoll system integration
+int ragdoll_engine_initialized = 0;
+RagdollHandle player_ragdoll = RAGDOLL_INIT();
+int ragdoll_physics_enabled = 0;
+
 // SVG graphics system
 NSVGimage* menu_graphics = NULL;
 NSVGimage* hud_graphics = NULL;
@@ -103,7 +117,7 @@ void update_particles(void);
 void draw_particles(void);
 int add_log(const char* msg);
 void render_logs(void);
-void draw_background(void);
+// Removed draw_background prototype
 void draw_menu(void);
 void draw_base_plate(void);
 void draw_player(float x, float z, int style, int is_master, int health, int attack_anim, int respawn_anim, int lives);
@@ -116,11 +130,12 @@ void draw_text(const char* text, float x, float y, float size);
 void draw_game_hud(void);
 void update_game_logic(void);
 void update_player_movement(void);
+void update_ue5_camera(void);
 void handle_mouse_input(int x, int y);
 void render_frame(void);
 void render_menu_orthographic(void);
 void render_game_perspective(void);
-void draw_menu_background_gradient(void);
+// Removed draw_menu_background_gradient prototype
 BOOL init_opengl(HWND hWnd);
 void cleanup_opengl(void);
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -283,25 +298,7 @@ void draw_text(const char* text, float x, float y, float size) {
     }
 }
 
-void draw_background(void) {
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    gluOrtho2D(0, window_width, 0, window_height);
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glBegin(GL_QUADS);
-    glColor3f(0.1f, 0.1f, 0.3f); glVertex2i(0, 0);
-    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(window_width, 0);
-    glColor3f(0.3f, 0.3f, 0.7f); glVertex2i(window_width, window_height);
-    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(0, window_height);
-    glEnd();
-    glPopMatrix();
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-}
+// Removed draw_background() function - was another source of gray background
 
 void draw_menu(void) {
     glEnable(GL_BLEND);
@@ -559,11 +556,22 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
     
     cam_target_x += cam_pan_x;
     cam_target_z += cam_pan_z;
-    
-    float cam_x = cam_target_x + cam_radius * cos(cam_angle);
-    float cam_y = cam_height;
-    float cam_z = cam_target_z + cam_radius * sin(cam_angle);
-    gluLookAt(cam_x, cam_y, cam_z, cam_target_x, 0.0f, cam_target_z, 0.0f, 1.0f, 0.0f);
+
+    // Use UE5-style camera when in menu mode or free camera mode
+    if (in_menu || free_camera_mode) {
+        // Calculate look direction from yaw and pitch
+        float look_x = cam_pos_x - sin(cam_yaw * M_PI / 180.0f) * cos(cam_pitch * M_PI / 180.0f);
+        float look_y = cam_pos_y + sin(cam_pitch * M_PI / 180.0f);
+        float look_z = cam_pos_z - cos(cam_yaw * M_PI / 180.0f) * cos(cam_pitch * M_PI / 180.0f);
+
+        gluLookAt(cam_pos_x, cam_pos_y, cam_pos_z, look_x, look_y, look_z, 0.0f, 1.0f, 0.0f);
+    } else {
+        // Legacy camera system for gameplay
+        float cam_x = cam_target_x + cam_radius * cos(cam_angle);
+        float cam_y = cam_height;
+        float cam_z = cam_target_z + cam_radius * sin(cam_angle);
+        gluLookAt(cam_x, cam_y, cam_z, cam_target_x, 0.0f, cam_target_z, 0.0f, 1.0f, 0.0f);
+    }
     draw_base_plate();
     if (training_phase) {
         draw_player(player_x, player_z, player_style, 0, 100, 0, 0, 2);
@@ -585,18 +593,7 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
     }
 }
 
-void draw_menu_background_gradient() {
-    glDisable(GL_DEPTH_TEST);
-    glBegin(GL_QUADS);
-    glColor4f(0.1f, 0.2f, 0.4f, 1.0f);
-    glVertex2f(0, window_height);
-    glVertex2f(window_width, window_height);
-    glColor4f(0.05f, 0.1f, 0.3f, 1.0f);
-    glVertex2f(window_width, 0);
-    glVertex2f(0, 0);
-    glEnd();
-    glEnable(GL_DEPTH_TEST);
-}
+// Removed draw_menu_background_gradient() function - was causing gray blob overlay
 
 void render_menu_orthographic() {
     glDisable(GL_DEPTH_TEST);
@@ -608,8 +605,8 @@ void render_menu_orthographic() {
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
-    
-    draw_menu_background_gradient();
+
+    // Removed draw_menu_background_gradient() to eliminate gray blob
     draw_menu();
     
     if (menu_graphics) {
@@ -635,10 +632,13 @@ void render_game_perspective() {
 void render_frame(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    // Always render the 3D scene first (even in menu mode)
+    render_game_perspective();
+
     if (in_menu) {
+        // Overlay the menu on top of the 3D scene
         render_menu_orthographic();
     } else {
-        render_game_perspective();
         draw_game_hud();
     }
 
@@ -692,6 +692,21 @@ void update_game_logic(void) {
         update_particles();
         game_tick++;
     }
+    
+    // Update ragdoll physics simulation
+    if (ragdoll_engine_initialized && ragdoll_physics_enabled && !in_menu) {
+        coreria_step_simulation(0.016f); // 60 FPS timestep
+        
+        // Update player position from ragdoll if active
+        if (RAGDOLL_IS_VALID(player_ragdoll)) {
+            float ragdoll_x, ragdoll_y, ragdoll_z;
+            if (coreria_get_ragdoll_position(player_ragdoll, &ragdoll_x, &ragdoll_y, &ragdoll_z) == 0) {
+                // Only update XZ position, keep the traditional player movement for Y
+                player_x = ragdoll_x;
+                player_z = ragdoll_z;
+            }
+        }
+    }
 }
 
 void draw_game_hud(void) {
@@ -738,8 +753,9 @@ void draw_game_hud(void) {
     draw_text(style_text, 20, 525, 1.0f);
     
     glColor3f(0.7f, 0.7f, 0.7f);
-    draw_text("WASD: Move, Arrows: Camera", 20, 505, 0.8f);
-    draw_text("Mouse: Look, Wheel: Zoom", 20, 495, 0.8f);
+    draw_text("WASD: Fly Camera, QE: Up/Down", 20, 515, 0.8f);
+    draw_text("Right Mouse: Look Around", 20, 505, 0.8f);
+    draw_text("Shift: Fast, Ctrl: Slow, F12: Refresh", 20, 495, 0.8f);
     
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
@@ -774,39 +790,101 @@ void update_player_movement(void) {
     if (player_z < -15.0f) { player_z = -15.0f; player_vel_z = 0.0f; }
     if (player_z > 15.0f) { player_z = 15.0f; player_vel_z = 0.0f; }
     
+    // Legacy camera controls (still available)
     if (keys[VK_LEFT]) cam_angle -= 0.03f;
     if (keys[VK_RIGHT]) cam_angle += 0.03f;
     if (keys[VK_UP]) cam_height += 0.1f;
     if (keys[VK_DOWN]) cam_height -= 0.1f;
-    
+
     if (cam_height < 2.0f) cam_height = 2.0f;
     if (cam_height > 25.0f) cam_height = 25.0f;
+}
+
+// UE5-style camera system
+void update_ue5_camera(void) {
+    // WASD movement (always active in menu mode)
+    float forward_x = -sin(cam_yaw * M_PI / 180.0f);
+    float forward_z = -cos(cam_yaw * M_PI / 180.0f);
+    float right_x = cos(cam_yaw * M_PI / 180.0f);
+    float right_z = -sin(cam_yaw * M_PI / 180.0f);
+
+    float move_speed = cam_speed;
+    if (keys[VK_SHIFT]) move_speed *= 3.0f;  // Speed boost with Shift
+    if (keys[VK_CONTROL]) move_speed *= 0.3f;  // Slow mode with Ctrl
+
+    if (keys['W']) {
+        cam_pos_x += forward_x * move_speed;
+        cam_pos_z += forward_z * move_speed;
+    }
+    if (keys['S']) {
+        cam_pos_x -= forward_x * move_speed;
+        cam_pos_z -= forward_z * move_speed;
+    }
+    if (keys['A']) {
+        cam_pos_x -= right_x * move_speed;
+        cam_pos_z -= right_z * move_speed;
+    }
+    if (keys['D']) {
+        cam_pos_x += right_x * move_speed;
+        cam_pos_z += right_z * move_speed;
+    }
+    if (keys['Q']) cam_pos_y -= move_speed;  // Down
+    if (keys['E']) cam_pos_y += move_speed;  // Up
+
+    // Constrain camera position
+    if (cam_pos_y < 1.0f) cam_pos_y = 1.0f;
+    if (cam_pos_y > 50.0f) cam_pos_y = 50.0f;
+
+    // Mouse wheel for speed adjustment
+    if (keys[VK_ADD] || keys[VK_OEM_PLUS]) cam_speed += 0.1f;
+    if (keys[VK_SUBTRACT] || keys[VK_OEM_MINUS]) cam_speed -= 0.1f;
+    if (cam_speed < 0.1f) cam_speed = 0.1f;
+    if (cam_speed > 5.0f) cam_speed = 5.0f;
 }
 
 void handle_mouse_input(int x, int y) {
     if (mouse_last_x == -1) {
         mouse_last_x = x;
         mouse_last_y = y;
+        last_mouse_x = x;
+        last_mouse_y = y;
         return;
     }
-    
+
     int dx = x - mouse_last_x;
     int dy = y - mouse_last_y;
-    
-    if (mouse_right_down) {
+
+    // UE5-style mouse look (right mouse button)
+    if (mouse_right_down && (in_menu || free_camera_mode)) {
+        cam_yaw += dx * cam_sensitivity;
+        cam_pitch -= dy * cam_sensitivity;
+
+        // Constrain pitch to prevent flipping
+        if (cam_pitch > 89.0f) cam_pitch = 89.0f;
+        if (cam_pitch < -89.0f) cam_pitch = -89.0f;
+
+        // Wrap yaw around 360 degrees
+        while (cam_yaw > 360.0f) cam_yaw -= 360.0f;
+        while (cam_yaw < 0.0f) cam_yaw += 360.0f;
+    }
+
+    // Legacy camera controls (for compatibility)
+    if (mouse_right_down && !in_menu) {
         cam_angle += dx * 0.01f;
         cam_height -= dy * 0.1f;
         if (cam_height < 2.0f) cam_height = 2.0f;
         if (cam_height > 25.0f) cam_height = 25.0f;
     }
-    
-    if (mouse_left_down) {
+
+    if (mouse_left_down && !in_menu) {
         cam_pan_x += dx * 0.05f;
         cam_pan_z += dy * 0.05f;
     }
-    
+
     mouse_last_x = x;
     mouse_last_y = y;
+    last_mouse_x = x;
+    last_mouse_y = y;
 }
 
 void init_svg_graphics(void) {
@@ -1038,7 +1116,7 @@ BOOL init_opengl(HWND hWnd) {
     glDepthFunc(GL_LESS);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);  // Transparent black - no gray blob
 
     init_svg_graphics();
 
@@ -1077,6 +1155,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                             player_style_global = selected_style;
                             in_menu = 0;
                             player_can_move = 1;
+                            
+                            // Spawn ragdoll for the player
+                            if (ragdoll_engine_initialized && !RAGDOLL_IS_VALID(player_ragdoll)) {
+                                player_ragdoll = coreria_spawn_ragdoll(0, selected_style, player_x, 2.0f, player_z);
+                                if (RAGDOLL_IS_VALID(player_ragdoll)) {
+                                    printf("[MAIN] Player ragdoll spawned with style %s (Handle: %u)\n", 
+                                           fighting_styles[selected_style], player_ragdoll.id);
+                                } else {
+                                    printf("[MAIN] Failed to spawn player ragdoll\n");
+                                }
+                            }
                         }
                         break;
                     case 'C':
@@ -1096,6 +1185,67 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                         break;
                     case VK_F12:
                         show_console = !show_console;
+                        break;
+                    case '1': // Punch/Basic Attack
+                        if (!in_menu && RAGDOLL_IS_VALID(player_ragdoll)) {
+                            // Apply force to arms for punching motion
+                            coreria_apply_limb_force(player_ragdoll, 2, 100.0f, 0.0f, 0.0f, 0.0f, 50.0f, 0.0f); // Left arm
+                            coreria_apply_limb_force(player_ragdoll, 3, 100.0f, 0.0f, 0.0f, 0.0f, -50.0f, 0.0f); // Right arm
+                            add_log("[Combat] Executed punch attack!");
+                        }
+                        break;
+                    case '2': // Kick Attack  
+                        if (!in_menu && RAGDOLL_IS_VALID(player_ragdoll)) {
+                            // Apply force to legs for kicking motion
+                            coreria_apply_limb_force(player_ragdoll, 4, 150.0f, 0.0f, 50.0f, 0.0f, 0.0f, 75.0f); // Left leg
+                            coreria_apply_limb_force(player_ragdoll, 5, 150.0f, 0.0f, -50.0f, 0.0f, 0.0f, -75.0f); // Right leg
+                            add_log("[Combat] Executed kick attack!");
+                        }
+                        break;
+                    case '3': // Special Move (Style-specific)
+                        if (!in_menu && RAGDOLL_IS_VALID(player_ragdoll)) {
+                            switch (player_style_global) {
+                                case 0: // Brawler - Berserker Rage
+                                    for (int limb = 0; limb < 6; limb++) {
+                                        coreria_apply_limb_force(player_ragdoll, limb, 200.0f, 0.0f, 0.0f, 100.0f, 0.0f, 0.0f);
+                                    }
+                                    add_log("[Combat] BERSERKER RAGE activated!");
+                                    break;
+                                case 1: // Striker - Tornado Kick
+                                    coreria_apply_limb_force(player_ragdoll, 2, 0.0f, 0.0f, 0.0f, 0.0f, 500.0f, 0.0f); // Spinning arms
+                                    coreria_apply_limb_force(player_ragdoll, 3, 0.0f, 0.0f, 0.0f, 0.0f, -500.0f, 0.0f);
+                                    add_log("[Combat] TORNADO KICK activated!");
+                                    break;
+                                case 2: // Phantom - Phase Step
+                                    coreria_apply_limb_force(player_ragdoll, 4, 50.0f, 100.0f, 0.0f, 0.0f, 0.0f, 0.0f); // Light movement
+                                    coreria_apply_limb_force(player_ragdoll, 5, 50.0f, 100.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+                                    add_log("[Combat] PHASE STEP activated!");
+                                    break;
+                                case 3: // Titan - Ground Slam
+                                    coreria_apply_limb_force(player_ragdoll, 2, 0.0f, -800.0f, 0.0f, 0.0f, 0.0f, 200.0f); // Arms down
+                                    coreria_apply_limb_force(player_ragdoll, 3, 0.0f, -800.0f, 0.0f, 0.0f, 0.0f, -200.0f);
+                                    add_log("[Combat] GROUND SLAM activated!");
+                                    break;
+                            }
+                        }
+                        break;
+                    case 'R': // Reset ragdoll position
+                        if (!in_menu && RAGDOLL_IS_VALID(player_ragdoll)) {
+                            // Destroy and respawn ragdoll at current player position
+                            coreria_destroy_ragdoll(player_ragdoll);
+                            player_ragdoll = coreria_spawn_ragdoll(0, player_style_global, player_x, 2.0f, player_z);
+                            add_log("[Combat] Ragdoll reset to player position!");
+                        }
+                        break;
+                    case 'T': // Toggle ragdoll physics
+                        if (!in_menu) {
+                            ragdoll_physics_enabled = !ragdoll_physics_enabled;
+                            if (ragdoll_physics_enabled) {
+                                add_log("[System] Ragdoll physics enabled!");
+                            } else {
+                                add_log("[System] Ragdoll physics disabled!");
+                            }
+                        }
                         break;
                     case VK_UP:
                         if (in_menu) {
@@ -1197,6 +1347,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return -1;
     }
 
+    // Initialize ragdoll physics engine
+    if (coreria_init_engine() == 0) {
+        ragdoll_engine_initialized = 1;
+        ragdoll_physics_enabled = 1;
+        printf("[MAIN] ChaosForge multiplayer ragdoll engine initialized successfully\n");
+    } else {
+        printf("[MAIN] Warning: Failed to initialize ragdoll engine, continuing without physics\n");
+    }
+
     ShowWindow(g_hWnd, nCmdShow);
     UpdateWindow(g_hWnd);
 
@@ -1214,6 +1373,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         update_player_movement();
+        update_ue5_camera();  // Update UE5-style camera
+
+        // F12 for real-time reload/refresh
+        if (keys[VK_F12]) {
+            // Force a full refresh - could reload shaders, textures, etc.
+            InvalidateRect(g_hWnd, NULL, TRUE);
+            keys[VK_F12] = 0;  // Prevent repeated triggers
+        }
 
         DWORD currentTime = GetTickCount();
         if (currentTime - lastTime >= 16) {
@@ -1224,6 +1391,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         
         Sleep(1);
+    }
+
+    // Cleanup ragdoll system
+    if (ragdoll_engine_initialized) {
+        if (RAGDOLL_IS_VALID(player_ragdoll)) {
+            coreria_destroy_ragdoll(player_ragdoll);
+            player_ragdoll = RAGDOLL_INIT();
+        }
+        coreria_shutdown_engine();
+        printf("[MAIN] Ragdoll engine shut down successfully\n");
     }
 
     cleanup_opengl();

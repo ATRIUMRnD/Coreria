@@ -4,20 +4,6 @@ use bevy::prelude::*;
 #[cfg(feature = "multiplayer-physics")]
 use bevy_rapier3d::prelude::*;
 
-/// Apply combat forces to ragdoll bodies
-pub fn apply_combat_forces(
-    // This would integrate with Rapier physics bodies when feature is enabled
-    mut ragdoll_query: Query<(&mut crate::entities::RagdollBody, &crate::entities::CombatState)>,
-) {
-    #[cfg(feature = "multiplayer-physics")]
-    {
-        for (mut ragdoll, combat_state) in ragdoll_query.iter_mut() {
-            // Apply forces based on combat actions
-            // This is a placeholder - would use actual Rapier RigidBody components
-        }
-    }
-}
-
 /// Monitor physics performance to ensure 60 FPS target
 pub fn monitor_physics_performance(
     time: Res<Time>,

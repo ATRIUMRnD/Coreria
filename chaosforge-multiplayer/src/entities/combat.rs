@@ -89,7 +89,7 @@ pub enum DamageType {
 /// System to process combat actions and resolve damage
 pub fn process_combat_actions(
     mut combat_query: Query<(Entity, &mut CombatState, &crate::entities::Player, &Transform)>,
-    mut damage_events: EventWriter<DamageEvent>,
+    damage_events: EventWriter<DamageEvent>,
     time: Res<Time>,
 ) {
     let current_time = time.elapsed_seconds_f64();
@@ -134,8 +134,8 @@ pub fn apply_damage(
     knockback: Vec3,
     combo: Option<ComboType>,
     attacker_query: &Query<&crate::entities::Player>,
-    mut victim_query: &mut Query<(&mut crate::entities::Health, &mut CombatState)>,
-    mut damage_events: &mut EventWriter<DamageEvent>,
+    victim_query: &mut Query<(&mut crate::entities::Health, &mut CombatState)>,
+    damage_events: &mut EventWriter<DamageEvent>,
 ) -> bool {
     // Get attacker style for damage calculation
     let attacker_damage_mult = if let Ok(attacker) = attacker_query.get(attacker_entity) {

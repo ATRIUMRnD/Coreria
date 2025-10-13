@@ -51,7 +51,7 @@ pub mod ffi;
 // Re-export core types
 pub use entities::*;
 pub use physics::*;
-pub use network::*; 
+ 
 pub use game::*;
 
 #[cfg(feature = "ffi")]

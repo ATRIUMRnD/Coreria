@@ -199,7 +199,7 @@ fn update_match_timer(
 fn check_win_conditions(
     match_query: Query<&MatchState>,
     player_query: Query<(&crate::entities::Player, &crate::entities::Health, &PlayerScore)>,
-    mut commands: Commands,
+    commands: Commands,
 ) {
     for match_state in match_query.iter() {
         if !matches!(match_state.status, MatchStatus::InProgress) {

@@ -164,7 +164,7 @@ pub fn process_input_buffer(
     mut transform_query: Query<&mut Transform>,
     time: Res<Time>,
 ) {
-    for (entity, mut input_buffer, player) in input_query.iter_mut() {
+    for (entity, input_buffer, player) in input_query.iter_mut() {
         if let Some(latest_frame) = input_buffer.latest_frame().cloned() {
             // Process movement actions
             let mut movement = Vec2::ZERO;

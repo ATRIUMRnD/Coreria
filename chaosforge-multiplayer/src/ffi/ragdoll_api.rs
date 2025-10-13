@@ -103,11 +103,53 @@ pub extern "C" fn coreria_spawn_ragdoll(
     let result = crate::with_engine(|engine| {
         let style: FightingStyle = style_id.into();
         let position = Vec3::new(x, y, z);
+        let world = engine.app.world_mut();
         
-        // Create ragdoll entity with all required components
-        let entity = engine.app.world_mut().spawn((
+        // Create individual limb entities with physics bodies
+        let head_entity = world.spawn((
+            Transform::from_translation(position + Vec3::new(0.0, 0.8, 0.0)),
+            Name::new(format!("Ragdoll_{}_Head", player_id)),
+        )).id();
+        
+        let torso_entity = world.spawn((
+            Transform::from_translation(position),
+            Name::new(format!("Ragdoll_{}_Torso", player_id)),
+        )).id();
+        
+        let left_arm_entity = world.spawn((
+            Transform::from_translation(position + Vec3::new(-0.5, 0.3, 0.0)),
+            Name::new(format!("Ragdoll_{}_LeftArm", player_id)),
+        )).id();
+        
+        let right_arm_entity = world.spawn((
+            Transform::from_translation(position + Vec3::new(0.5, 0.3, 0.0)),
+            Name::new(format!("Ragdoll_{}_RightArm", player_id)),
+        )).id();
+        
+        let left_leg_entity = world.spawn((
+            Transform::from_translation(position + Vec3::new(-0.2, -0.8, 0.0)),
+            Name::new(format!("Ragdoll_{}_LeftLeg", player_id)),
+        )).id();
+        
+        let right_leg_entity = world.spawn((
+            Transform::from_translation(position + Vec3::new(0.2, -0.8, 0.0)),
+            Name::new(format!("Ragdoll_{}_RightLeg", player_id)),
+        )).id();
+        
+        // Create ragdoll body with references to limb entities
+        let mut ragdoll_body = RagdollBody::default();
+        ragdoll_body.head = Some(head_entity);
+        ragdoll_body.torso = Some(torso_entity);
+        ragdoll_body.left_arm = Some(left_arm_entity);
+        ragdoll_body.right_arm = Some(right_arm_entity);
+        ragdoll_body.left_leg = Some(left_leg_entity);
+        ragdoll_body.right_leg = Some(right_leg_entity);
+        ragdoll_body.mass_scale = style.mass_multiplier();
+        
+        // Create main ragdoll entity with all required components
+        let entity = world.spawn((
             Player::new(player_id, style),
-            RagdollBody::default(),
+            ragdoll_body,
             crate::entities::Health::new(100.0),
             crate::entities::NetworkState::default(),
             Transform::from_translation(position),
