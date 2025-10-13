@@ -315,17 +315,11 @@ void draw_menu(void) {
     glLoadIdentity();
     
     glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Draw full-screen gradient background to replace gray blob
-    glBegin(GL_QUADS);
-    glColor3f(0.05f, 0.05f, 0.15f); glVertex2f(0, 0);
-    glColor3f(0.1f, 0.1f, 0.25f); glVertex2f(WINDOW_WIDTH, 0);
-    glColor3f(0.15f, 0.15f, 0.35f); glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
-    glColor3f(0.1f, 0.1f, 0.25f); glVertex2f(0, WINDOW_HEIGHT);
-    glEnd();
-
-    // Draw main menu background (centered and larger)
-    glColor3f(0.05f, 0.05f, 0.2f);
+    // Draw semi-transparent main menu background (centered) - no full-screen overlay
+    glColor4f(0.05f, 0.05f, 0.2f, 0.85f); // Semi-transparent background
     glBegin(GL_QUADS);
     glVertex2f(100, 80);
     glVertex2f(700, 80);
@@ -420,6 +414,7 @@ void draw_menu(void) {
     glColor3f(0.6f, 0.6f, 0.6f);
     draw_text("ESC to exit", 320, 100, 1.2f);
     
+    glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
@@ -665,6 +660,11 @@ void render_frame(void) {
 
         // Draw menu overlay
         draw_menu();
+
+        // Draw SVG graphics overlay for menu decorations
+        if (menu_graphics) {
+            draw_svg_graphics(menu_graphics, 0, 0, 1.0f);
+        }
     } else if (training_phase && !passed_exam) {
         render_scene(NULL, 1, master_style, player_style_global);
         // Draw HUD during training
@@ -789,6 +789,11 @@ void draw_game_hud(void) {
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
+
+    // Draw SVG HUD graphics overlay
+    if (hud_graphics) {
+        draw_svg_graphics(hud_graphics, 0, 0, 1.0f);
+    }
 }
 
 void update_player_movement(void) {
@@ -914,6 +919,171 @@ NSVGimage* create_hud_graphics(void) {
     return image;
 }
 
+void draw_svg_graphics(NSVGimage* image, float x, float y, float scale) {
+    if (!image) return;
+
+    // Set up 2D rendering for SVG overlay
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Render SVG shapes
+    NSVGshape* shape = image->shapes;
+    while (shape) {
+        if (shape->fill != 0) {
+            // Extract RGBA components
+            float r = ((shape->fill >> 24) & 0xFF) / 255.0f;
+            float g = ((shape->fill >> 16) & 0xFF) / 255.0f;
+            float b = ((shape->fill >> 8) & 0xFF) / 255.0f;
+            float a = (shape->fill & 0xFF) / 255.0f;
+
+            glColor4f(r, g, b, a);
+
+            // Simple rectangle rendering (basic implementation)
+            if (shape->npts >= 4) {
+                glBegin(GL_QUADS);
+                for (int i = 0; i < 4 && i < shape->npts; i++) {
+                    glVertex2f(x + shape->pts[i*2] * scale, y + shape->pts[i*2+1] * scale);
+                }
+                glEnd();
+            }
+        }
+        shape = shape->next;
+    }
+
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+}
+
+// Basic NanoSVG stub implementations
+NSVGimage* nsvgCreateImage(float width, float height) {
+    NSVGimage* image = (NSVGimage*)malloc(sizeof(NSVGimage));
+    if (!image) return NULL;
+    image->width = width;
+    image->height = height;
+    image->shapes = NULL;
+    return image;
+}
+
+NSVGshape* nsvgCreateRect(float x, float y, float w, float h, unsigned int fill) {
+    NSVGshape* shape = (NSVGshape*)malloc(sizeof(NSVGshape));
+    if (!shape) return NULL;
+
+    shape->pts = (float*)malloc(8 * sizeof(float)); // 4 points, 2 coords each
+    if (!shape->pts) {
+        free(shape);
+        return NULL;
+    }
+
+    // Rectangle corners
+    shape->pts[0] = x; shape->pts[1] = y;         // Bottom-left
+    shape->pts[2] = x + w; shape->pts[3] = y;     // Bottom-right
+    shape->pts[4] = x + w; shape->pts[5] = y + h; // Top-right
+    shape->pts[6] = x; shape->pts[7] = y + h;     // Top-left
+
+    shape->npts = 4;
+    shape->fill = fill;
+    shape->stroke = 0;
+    shape->strokeWidth = 0;
+    shape->next = NULL;
+
+    return shape;
+}
+
+NSVGshape* nsvgCreateCircle(float cx, float cy, float r, unsigned int fill) {
+    NSVGshape* shape = (NSVGshape*)malloc(sizeof(NSVGshape));
+    if (!shape) return NULL;
+
+    // Approximate circle with octagon
+    int segments = 8;
+    shape->pts = (float*)malloc(segments * 2 * sizeof(float));
+    if (!shape->pts) {
+        free(shape);
+        return NULL;
+    }
+
+    for (int i = 0; i < segments; i++) {
+        float angle = i * 2.0f * M_PI / segments;
+        shape->pts[i*2] = cx + r * cos(angle);
+        shape->pts[i*2+1] = cy + r * sin(angle);
+    }
+
+    shape->npts = segments;
+    shape->fill = fill;
+    shape->stroke = 0;
+    shape->strokeWidth = 0;
+    shape->next = NULL;
+
+    return shape;
+}
+
+NSVGshape* nsvgCreateLine(float x1, float y1, float x2, float y2, unsigned int stroke, float strokeWidth) {
+    NSVGshape* shape = (NSVGshape*)malloc(sizeof(NSVGshape));
+    if (!shape) return NULL;
+
+    shape->pts = (float*)malloc(4 * sizeof(float)); // 2 points, 2 coords each
+    if (!shape->pts) {
+        free(shape);
+        return NULL;
+    }
+
+    shape->pts[0] = x1; shape->pts[1] = y1;
+    shape->pts[2] = x2; shape->pts[3] = y2;
+
+    shape->npts = 2;
+    shape->fill = 0;
+    shape->stroke = stroke;
+    shape->strokeWidth = strokeWidth;
+    shape->next = NULL;
+
+    return shape;
+}
+
+void nsvgAddShape(NSVGimage* image, NSVGshape* shape) {
+    if (!image || !shape) return;
+
+    shape->next = image->shapes;
+    image->shapes = shape;
+}
+
+void nsvgDelete(NSVGimage* image) {
+    if (!image) return;
+
+    NSVGshape* shape = image->shapes;
+    while (shape) {
+        NSVGshape* next = shape->next;
+        if (shape->pts) free(shape->pts);
+        free(shape);
+        shape = next;
+    }
+
+    free(image);
+}
+
+NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi) {
+    (void)filename; (void)units; (void)dpi;
+    // Stub implementation - would load from file in full version
+    return NULL;
+}
+
+NSVGimage* nsvgParse(char* input, const char* units, float dpi) {
+    (void)input; (void)units; (void)dpi;
+    // Stub implementation - would parse SVG string in full version
+    return NULL;
+}
+
 BOOL init_opengl(HWND hWnd) {
     PIXELFORMATDESCRIPTOR pfd = {
         sizeof(PIXELFORMATDESCRIPTOR),
@@ -953,11 +1123,17 @@ BOOL init_opengl(HWND hWnd) {
     glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
 
     printf("[DEBUG] OpenGL initialized successfully.\n");
-    
+
+    // Initialize SVG graphics system
+    init_svg_graphics();
+
     return TRUE;
 }
 
 void cleanup_opengl(void) {
+    // Cleanup SVG graphics first
+    cleanup_svg_graphics();
+
     if (g_hRC) {
         wglMakeCurrent(NULL, NULL);
         wglDeleteContext(g_hRC);
