@@ -78,7 +78,7 @@ function Build-RustProject {
         Invoke-Expression $BuildCommand
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✓ Rust build successful" -ForegroundColor Green
+            Write-Host "Rust build successful" -ForegroundColor Green
         } else {
             throw "Rust build failed with exit code $LASTEXITCODE"
         }
@@ -125,7 +125,7 @@ function Build-CProject {
         }
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✓ C build successful" -ForegroundColor Green
+            Write-Host "C build successful" -ForegroundColor Green
         } else {
             throw "C build failed with exit code $LASTEXITCODE"
         }
@@ -148,9 +148,9 @@ function Test-Projects {
                 Write-Host "Running Rust tests..." -ForegroundColor Yellow
                 cargo test
                 if ($LASTEXITCODE -eq 0) {
-                    Write-Host "✓ Rust tests passed" -ForegroundColor Green
+                    Write-Host "Rust tests passed" -ForegroundColor Green
                 } else {
-                    Write-Host "✗ Rust tests failed" -ForegroundColor Red
+                    Write-Host "Rust tests failed" -ForegroundColor Red
                 }
             }
             finally {
@@ -221,7 +221,7 @@ try {
                     Push-Location $RustPath
                     cargo clean
                     Pop-Location
-                    Write-Host "✓ Rust project cleaned" -ForegroundColor Green
+                    Write-Host "Rust project cleaned" -ForegroundColor Green
                 }
             }
             
@@ -256,10 +256,10 @@ try {
     }
     
     Write-Host ""
-    Write-Host "✓ Task completed successfully!" -ForegroundColor Green
-    
+    Write-Host "Task completed successfully!" -ForegroundColor Green
+
 } catch {
     Write-Host ""
-    Write-Host "✗ Task failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Task failed: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }

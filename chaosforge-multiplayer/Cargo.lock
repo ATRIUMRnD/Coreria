@@ -1826,6 +1826,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.72.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1995,6 +2004,9 @@ name = "bytes"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "calloop"
@@ -2131,7 +2143,7 @@ dependencies = [
  "glam 0.27.0",
  "libc",
  "once_cell",
- "renet 0.0.13",
+ "renet 0.0.11",
  "serde",
  "uuid",
 ]
@@ -4634,6 +4646,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rechannel"
+version = "0.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a78a1b9f690de00ab9be902447d29e1770e5dfc8e184d1faffc6cea7c91b6b9"
+dependencies = [
+ "bincode",
+ "bytes",
+ "log",
+ "serde",
+]
+
+[[package]]
 name = "rectangle-pack"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4703,14 +4727,13 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
 name = "renet"
-version = "0.0.13"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "751424a2b0a8640bc41ca8b969250491b1a29e9b872dee4c7c56bcc56575b76e"
+checksum = "aea041966cfc4d08ad0eec6cbf0c3ff9a6fc030f949e8de40c5962d005b9db95"
 dependencies = [
- "bytes",
  "log",
- "octets",
- "renetcode 0.0.9",
+ "rechannel",
+ "renetcode 0.0.7",
 ]
 
 [[package]]
@@ -4728,9 +4751,9 @@ dependencies = [
 
 [[package]]
 name = "renetcode"
-version = "0.0.9"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed06c64c06cd7d80c61d6049c7dea9cc39bbf685b73ef9a6c5d01fada276094f"
+checksum = "b4330d94d7a880f7717fa78c30ef8e3f15e1cc165502a911da437ac89cb585a3"
 dependencies = [
  "chacha20poly1305",
  "log",

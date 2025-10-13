@@ -44,6 +44,8 @@ pub mod entities;
 pub mod physics;
 pub mod network;
 pub mod game;
+
+#[cfg(feature = "ffi")]
 pub mod ffi;
 
 // Re-export core types

@@ -27,9 +27,9 @@ bevy = { version = "0.14", default-features = false, features = [
 # Physics Engine (ODE alternative - Rapier for better Rust integration)
 bevy_rapier3d = { version = "0.26", optional = true }
 
-# Networking
+# Networking (updated to compatible versions)
 bevy_renet = { version = "0.0.11", optional = true }
-renet = { version = "0.0.13", optional = true }
+renet = { version = "0.0.11", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 
 # FFI and C Integration
