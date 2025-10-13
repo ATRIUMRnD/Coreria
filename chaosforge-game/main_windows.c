@@ -1,36 +1,31 @@
 #define _USE_MATH_DEFINES
-#ifdef _WIN32
 #include <windows.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <math.h>
-#ifdef _WIN32
 #include <GL/gl.h>
 #include <GL/glu.h>
-#endif
-#include <GLFW/glfw3.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-#include <GL/gl.h>
-#include <GL/glu.h>
+
 #include "player_controller.h"
 #include "combat_system.h"
 #include "physics_manager.h"
 #include "game_state.h"
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 // Constants
 #define MAX_PARTICLES 64
 #define MAX_DYNAMIC_OBJECTS 16
 #define MAX_LOG_LINES 32
 #define LOG_LINE_LENGTH 128
+
+// Window dimensions
+#define WINDOW_WIDTH 800
+#define WINDOW_HEIGHT 600
 
 // Particle system
 typedef struct {
@@ -47,11 +42,10 @@ typedef struct {
 } DynamicObject;
 
 // Global variables
-// GLFW window pointer (for cross-platform input)
-    // GLFW input state
-    static int keys[GLFW_KEY_LAST + 1] = {0};
-    static int mouse_buttons[GLFW_MOUSE_BUTTON_LAST + 1] = {0};
-    static double mouse_x = 0.0, mouse_y = 0.0;
+HWND g_hWnd;
+HDC g_hDC;
+HGLRC g_hRC;
+
 Particle particles[MAX_PARTICLES];
 int particle_count = 0;
 DynamicObject dynamic_objects[MAX_DYNAMIC_OBJECTS];
@@ -67,8 +61,15 @@ float cam_pan_x = 0.0f, cam_pan_z = 0.0f;
 float target_x = 0.0f, target_z = 0.0f;
 int cam_follow_player = 0;
 int mouse_left_down = 0;
+int mouse_right_down = 0;
 int mouse_last_x = -1, mouse_last_y = -1;
 int show_console = 0;
+
+// Player movement state
+float player_vel_x = 0.0f, player_vel_z = 0.0f;
+float player_speed = 0.15f;
+float player_friction = 0.9f;
+int player_can_move = 0;
 
 // Game state
 const char* fighting_styles[] = {"Brawler", "Striker", "Phantom", "Titan"};
@@ -78,7 +79,7 @@ float player_x = 0.0f, player_z = -5.0f;
 int player_style_global = 0;
 int running = 1;
 
-// Game state variables for GLUT
+// Game state variables
 GameState game_state;
 int game_tick = 0;
 int training_phase = 1;
@@ -86,7 +87,31 @@ int master_style = 0;
 int passed_exam = 0;
 int training_ticks = 0;
 
+// Key state tracking
+BOOL keys[256] = {FALSE};
+
 // Function prototypes
+void spawn_particles(float x, float z, int type);
+void update_particles(void);
+void draw_particles(void);
+int add_log(const char* msg);
+void render_logs(void);
+void draw_background(void);
+void draw_menu(void);
+void draw_base_plate(void);
+void draw_player(float x, float z, int style, int is_master, int health, int attack_anim, int respawn_anim, int lives);
+void draw_dynamic_objects(void);
+void render_scene(GameState* state, int training_phase, int master_style, int player_style);
+void copy_to_clipboard(const char* text);
+void glut_sphere_approx(float radius, int subdivisions);
+void update_game_logic(void);
+void update_player_movement(void);
+void handle_mouse_input(int x, int y);
+void render_frame(void);
+BOOL init_opengl(HWND hWnd);
+void cleanup_opengl(void);
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
 void spawn_particles(float x, float z, int type) {
     for (int i = 0; i < 8 && particle_count < MAX_PARTICLES; ++i) {
         float angle = (float)i * (2 * M_PI / 8);
@@ -101,22 +126,8 @@ void spawn_particles(float x, float z, int type) {
         particle_count++;
     }
 }
-void update_particles(void);
-void draw_particles(void);
-int add_log(const char* msg);
-void render_logs(void);
-void draw_background(void);
-void draw_menu(void);
-void draw_base_plate(void);
-void draw_player(float x, float z, int style, int is_master, int health, int attack_anim, int respawn_anim, int lives);
-void draw_dynamic_objects(void);
-void render_scene(GameState* state, int training_phase, int master_style, int player_style);
-void copy_to_clipboard(const char* text);
-void glut_sphere_approx(float radius, int subdivisions);
-// Stub implementations for missing functions
-// Log system
+
 void update_particles(void) {
-    // Example: update all particles' positions and lifetimes
     for (int i = 0; i < particle_count; ++i) {
         particles[i].x += particles[i].vx;
         particles[i].y += particles[i].vy;
@@ -138,7 +149,6 @@ void draw_particles(void) {
         else glColor3f(1.0f, 1.0f, 0.5f); // respawn
         glPushMatrix();
         glTranslatef(particles[i].x, particles[i].y, particles[i].z);
-        // Simple OpenGL sphere (icosahedron as placeholder)
         glut_sphere_approx(0.2f, 8);
         glPopMatrix();
     }
@@ -161,18 +171,21 @@ int add_log(const char* msg) {
     }
 }
 
-// OpenGL does not natively support text rendering; stub out log rendering
 void render_logs(void) {
-    // You can use a library like stb_easy_font or render nothing for now
-    // For now, just leave this empty or print to console
-    for (int i = 0; i < log_count; ++i) {
-        // printf("%s\n", game_logs[i]);
+    // Console output for now
+    if (show_console) {
+        static int last_log_count = 0;
+        if (log_count != last_log_count) {
+            printf("[CONSOLE] Logs:\n");
+            for (int i = 0; i < log_count; ++i) {
+                printf("  %s\n", game_logs[i]);
+            }
+            last_log_count = log_count;
+        }
     }
 }
 
-// Simple sphere approximation using OpenGL (icosahedron)
 void glut_sphere_approx(float radius, int subdivisions) {
-    // Draw a simple icosahedron as a placeholder for a sphere
     glBegin(GL_TRIANGLES);
     for (int i = 0; i < 8; ++i) {
         float theta1 = i * M_PI / 4;
@@ -188,15 +201,15 @@ void draw_background(void) {
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    gluOrtho2D(0, 800, 0, 600);
+    gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
     glBegin(GL_QUADS);
     glColor3f(0.1f, 0.1f, 0.3f); glVertex2i(0, 0);
-    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(800, 0);
-    glColor3f(0.3f, 0.3f, 0.7f); glVertex2i(800, 600);
-    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(0, 600);
+    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(WINDOW_WIDTH, 0);
+    glColor3f(0.3f, 0.3f, 0.7f); glVertex2i(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(0, WINDOW_HEIGHT);
     glEnd();
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
@@ -204,56 +217,12 @@ void draw_background(void) {
     glMatrixMode(GL_MODELVIEW);
 }
 
-
-// GLFW key callback
-void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    (void)window;
-    (void)scancode;
-    (void)mods;
-    if (key >= 0 && key <= GLFW_KEY_LAST) {
-        if (action == GLFW_PRESS) keys[key] = 1;
-        else if (action == GLFW_RELEASE) keys[key] = 0;
-    }
-}
-
-// GLFW mouse button callback
-void glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-    (void)window;
-    (void)mods;
-    if (button >= 0 && button <= GLFW_MOUSE_BUTTON_LAST) {
-        if (action == GLFW_PRESS) mouse_buttons[button] = 1;
-        else if (action == GLFW_RELEASE) mouse_buttons[button] = 0;
-    }
-}
-
-// GLFW cursor position callback
-void glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
-    (void)window;
-    mouse_x = xpos;
-    mouse_y = ypos;
-}
-
-void mouse_scroll_callback(float yoffset) {
-    cam_radius -= yoffset;
-    if (cam_radius < 5.0f) cam_radius = 5.0f;
-    if (cam_radius > 50.0f) cam_radius = 50.0f;
-    glPopMatrix();
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    float cam_x = target_x + cam_pan_x + cam_radius * cos(cam_angle);
-    float cam_y = cam_height;
-    float cam_z = target_z + cam_pan_z + cam_radius * sin(cam_angle);
-    gluLookAt(cam_x, cam_y, cam_z, target_x + cam_pan_x, 0.0f, target_z + cam_pan_z, 0.0f, 1.0f, 0.0f);
-    glEnable(GL_DEPTH_TEST);
-}
-
 void draw_menu(void) {
     // Simple menu - draw colored rectangles to represent menu items
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    glOrtho(0, 800, 0, 600, -1, 1);
+    glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
@@ -407,9 +376,7 @@ void draw_player(float x, float z, int style, int is_master, int health, int att
 }
 
 void copy_to_clipboard(const char* text) {
-    (void)text;
-#ifdef _WIN32
-    if (OpenClipboard(NULL)) {
+    if (OpenClipboard(g_hWnd)) {
         EmptyClipboard();
         HGLOBAL hClipboardData = GlobalAlloc(GMEM_DDESHARE, strlen(text) + 1);
         if (hClipboardData) {
@@ -420,37 +387,45 @@ void copy_to_clipboard(const char* text) {
         }
         CloseClipboard();
     }
-#endif
 }
 
-// Dynamic objects rendering
 void draw_dynamic_objects(void) {
     for (int i = 0; i < dynamic_object_count; ++i) {
         draw_player(dynamic_objects[i].x, dynamic_objects[i].z, dynamic_objects[i].style, 0, 100, 0, 0, 2);
     }
 }
 
-// Scene rendering
 void render_scene(GameState* state, int training_phase, int master_style, int player_style) {
     // Draw particles
     draw_particles();
     // Camera setup
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(60.0, 800.0/600.0, 0.1, 100.0);
+    gluPerspective(60.0, (double)WINDOW_WIDTH/(double)WINDOW_HEIGHT, 0.1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    float target_x = 0.0f, target_z = 0.0f;
-    if (cam_follow_player && state) {
-        // Follow player 0
+    
+    // Set camera target based on game state
+    float cam_target_x = 0.0f, cam_target_z = 0.0f;
+    if (training_phase && !in_menu) {
+        // In training mode, center on player position
+        cam_target_x = player_x;
+        cam_target_z = player_z;
+    } else if (cam_follow_player && state) {
+        // Follow player 0 in main game
         float angle = 0 * (2 * M_PI / MAX_PLAYERS);
-        target_x = 7.0f * cos(angle);
-        target_z = 7.0f * sin(angle);
+        cam_target_x = 7.0f * cos(angle);
+        cam_target_z = 7.0f * sin(angle);
     }
-    float cam_x = target_x + cam_radius * cos(cam_angle);
+    
+    // Apply camera panning
+    cam_target_x += cam_pan_x;
+    cam_target_z += cam_pan_z;
+    
+    float cam_x = cam_target_x + cam_radius * cos(cam_angle);
     float cam_y = cam_height;
-    float cam_z = target_z + cam_radius * sin(cam_angle);
-    gluLookAt(cam_x, cam_y, cam_z, target_x, 0.0f, target_z, 0.0f, 1.0f, 0.0f);
+    float cam_z = cam_target_z + cam_radius * sin(cam_angle);
+    gluLookAt(cam_x, cam_y, cam_z, cam_target_x, 0.0f, cam_target_z, 0.0f, 1.0f, 0.0f);
     // Draw base plate
     draw_base_plate();
     if (training_phase) {
@@ -473,9 +448,6 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
     }
 }
 
-// Windows message handling
-
-// Rendering function
 void render_frame(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -483,7 +455,7 @@ void render_frame(void) {
         // Set up 3D perspective for menu
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
-        gluPerspective(60.0, 800.0/600.0, 0.1, 100.0);
+        gluPerspective(60.0, (double)WINDOW_WIDTH/(double)WINDOW_HEIGHT, 0.1, 100.0);
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
         gluLookAt(0, 5, 10, 0, 0, 0, 0, 1, 0);
@@ -504,7 +476,6 @@ void render_frame(void) {
     }
 }
 
-// Game update function
 void update_game_logic(void) {
     if (!running) return;
 
@@ -557,136 +528,322 @@ void update_game_logic(void) {
     }
 }
 
-// OpenGL initialization (removed unused function)
+void update_player_movement(void) {
+    if (!player_can_move || in_menu) return;
+    
+    // Keyboard movement (WASD for player, Arrow keys for camera)
+    float move_x = 0.0f, move_z = 0.0f;
+    
+    if (keys['W']) move_z -= player_speed;
+    if (keys['S']) move_z += player_speed;
+    if (keys['A']) move_x -= player_speed;
+    if (keys['D']) move_x += player_speed;
+    
+    // Apply movement with momentum
+    player_vel_x = player_vel_x * player_friction + move_x;
+    player_vel_z = player_vel_z * player_friction + move_z;
+    
+    // Update player position
+    player_x += player_vel_x;
+    player_z += player_vel_z;
+    
+    // Keep player within bounds (-15 to 15)
+    if (player_x < -15.0f) { player_x = -15.0f; player_vel_x = 0.0f; }
+    if (player_x > 15.0f) { player_x = 15.0f; player_vel_x = 0.0f; }
+    if (player_z < -15.0f) { player_z = -15.0f; player_vel_z = 0.0f; }
+    if (player_z > 15.0f) { player_z = 15.0f; player_vel_z = 0.0f; }
+    
+    // Camera movement with arrow keys
+    if (keys[VK_LEFT]) cam_angle -= 0.03f;
+    if (keys[VK_RIGHT]) cam_angle += 0.03f;
+    if (keys[VK_UP]) cam_height += 0.1f;
+    if (keys[VK_DOWN]) cam_height -= 0.1f;
+    
+    // Limit camera height
+    if (cam_height < 2.0f) cam_height = 2.0f;
+    if (cam_height > 25.0f) cam_height = 25.0f;
+}
 
-// Main function
-int main(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
-    printf("[DEBUG] Starting ChaosForge Arena...\n");
-
-    // Initialize GLFW
-    if (!glfwInit()) {
-        fprintf(stderr, "[ERROR] Failed to initialize GLFW\n");
-        return -1;
+void handle_mouse_input(int x, int y) {
+    if (mouse_last_x == -1) {
+        mouse_last_x = x;
+        mouse_last_y = y;
+        return;
     }
-
-    // Use OpenGL compatibility profile for older OpenGL functions
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    // Create window
-    GLFWwindow* window = glfwCreateWindow(800, 600, "ChaosForge Arena", NULL, NULL);
-    if (!window) {
-        fprintf(stderr, "[ERROR] Failed to create GLFW window\n");
-        glfwTerminate();
-        return -1;
+    
+    int dx = x - mouse_last_x;
+    int dy = y - mouse_last_y;
+    
+    // Right mouse button: camera rotation
+    if (mouse_right_down) {
+        cam_angle += dx * 0.01f;
+        cam_height -= dy * 0.1f;
+        if (cam_height < 2.0f) cam_height = 2.0f;
+        if (cam_height > 25.0f) cam_height = 25.0f;
     }
-    glfwMakeContextCurrent(window);
+    
+    // Left mouse button: camera pan
+    if (mouse_left_down) {
+        cam_pan_x += dx * 0.05f;
+        cam_pan_z += dy * 0.05f;
+    }
+    
+    mouse_last_x = x;
+    mouse_last_y = y;
+}
+
+BOOL init_opengl(HWND hWnd) {
+    PIXELFORMATDESCRIPTOR pfd = {
+        sizeof(PIXELFORMATDESCRIPTOR),
+        1,
+        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+        PFD_TYPE_RGBA,
+        32,
+        0, 0, 0, 0, 0, 0,
+        0,
+        0,
+        0,
+        0, 0, 0, 0,
+        24,
+        8,
+        0,
+        PFD_MAIN_PLANE,
+        0,
+        0, 0, 0
+    };
+
+    g_hDC = GetDC(hWnd);
+    int pixelFormat = ChoosePixelFormat(g_hDC, &pfd);
+    if (!pixelFormat) return FALSE;
+
+    if (!SetPixelFormat(g_hDC, pixelFormat, &pfd)) return FALSE;
+
+    g_hRC = wglCreateContext(g_hDC);
+    if (!g_hRC) return FALSE;
+
+    if (!wglMakeCurrent(g_hDC, g_hRC)) return FALSE;
 
     // Initialize OpenGL settings
-    printf("[DEBUG] OpenGL initialized successfully.\n");
-    
-    // Enable depth testing
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-    
-    // Enable blending for transparency
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    // Set clear color
     glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
 
-    // Enable VSync
-    glfwSwapInterval(1);
+    printf("[DEBUG] OpenGL initialized successfully.\n");
+    
+    return TRUE;
+}
 
-    // Set input callbacks
-    glfwSetKeyCallback(window, glfw_key_callback);
-    glfwSetMouseButtonCallback(window, glfw_mouse_button_callback);
-    glfwSetCursorPosCallback(window, glfw_cursor_position_callback);
+void cleanup_opengl(void) {
+    if (g_hRC) {
+        wglMakeCurrent(NULL, NULL);
+        wglDeleteContext(g_hRC);
+        g_hRC = NULL;
+    }
+    if (g_hDC) {
+        ReleaseDC(g_hWnd, g_hDC);
+        g_hDC = NULL;
+    }
+}
+
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    static int last_keys[256] = {0};
+    
+    switch (message) {
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            break;
+            
+        case WM_KEYDOWN:
+            keys[wParam] = TRUE;
+            
+            // Handle one-time key presses
+            if (!last_keys[wParam]) {
+                switch (wParam) {
+                    case VK_RETURN:
+                        if (in_menu) {
+                            player_style_global = selected_style;
+                            in_menu = 0;
+                            player_can_move = 1;  // Enable player movement
+                            printf("[DEBUG] Selected %s, starting game...\n", fighting_styles[selected_style]);
+                            printf("[DEBUG] Movement controls: WASD to move, Arrow keys for camera, Mouse for camera control\n");
+                        }
+                        break;
+                    case 'C':
+                        if (in_menu) {
+                            copy_to_clipboard(fighting_styles[selected_style]);
+                            add_log("[Menu] Style copied to clipboard.");
+                        }
+                        break;
+                    case VK_SPACE:
+                        if (!in_menu && dynamic_object_count < MAX_DYNAMIC_OBJECTS) {
+                            dynamic_objects[dynamic_object_count].x = player_x;
+                            dynamic_objects[dynamic_object_count].z = player_z;
+                            dynamic_objects[dynamic_object_count].style = player_style_global;
+                            dynamic_object_count++;
+                            add_log("[Game] New object spawned at player position.");
+                        }
+                        break;
+                    case VK_F12:
+                        show_console = !show_console;
+                        printf("[DEBUG] Console toggled: %s\n", show_console ? "ON" : "OFF");
+                        break;
+                    case VK_UP:
+                        if (in_menu) {
+                            selected_style = (selected_style + 3) % 4;
+                            printf("[DEBUG] Menu selection: %s\n", fighting_styles[selected_style]);
+                        }
+                        break;
+                    case VK_DOWN:
+                        if (in_menu) {
+                            selected_style = (selected_style + 1) % 4;
+                            printf("[DEBUG] Menu selection: %s\n", fighting_styles[selected_style]);
+                        }
+                        break;
+                    case VK_ESCAPE:
+                        running = 0;
+                        PostQuitMessage(0);
+                        break;
+                }
+            }
+            last_keys[wParam] = 1;
+            break;
+            
+        case WM_KEYUP:
+            keys[wParam] = FALSE;
+            last_keys[wParam] = 0;
+            break;
+            
+        case WM_LBUTTONDOWN:
+            mouse_left_down = 1;
+            SetCapture(hWnd);
+            break;
+            
+        case WM_LBUTTONUP:
+            mouse_left_down = 0;
+            ReleaseCapture();
+            break;
+            
+        case WM_RBUTTONDOWN:
+            mouse_right_down = 1;
+            SetCapture(hWnd);
+            break;
+            
+        case WM_RBUTTONUP:
+            mouse_right_down = 0;
+            ReleaseCapture();
+            break;
+            
+        case WM_MOUSEMOVE:
+            handle_mouse_input(LOWORD(lParam), HIWORD(lParam));
+            break;
+            
+        case WM_MOUSEWHEEL:
+            {
+                int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+                cam_radius -= delta / 120.0f;  // 120 is standard wheel delta
+                if (cam_radius < 5.0f) cam_radius = 5.0f;
+                if (cam_radius > 50.0f) cam_radius = 50.0f;
+                printf("[DEBUG] Camera zoom: %.1f\n", cam_radius);
+            }
+            break;
+            
+        case WM_SIZE:
+            glViewport(0, 0, LOWORD(lParam), HIWORD(lParam));
+            break;
+            
+        default:
+            return DefWindowProc(hWnd, message, wParam, lParam);
+    }
+    return 0;
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    (void)hPrevInstance;
+    (void)lpCmdLine;
+    
+    printf("[DEBUG] Starting ChaosForge Arena...\n");
+
+    // Register window class
+    WNDCLASSEX wcex = {
+        sizeof(WNDCLASSEX),
+        CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
+        WndProc,
+        0, 0,
+        hInstance,
+        NULL,
+        LoadCursor(NULL, IDC_ARROW),
+        NULL,
+        NULL,
+        "ChaosForgeArena",
+        NULL
+    };
+    
+    if (!RegisterClassEx(&wcex)) {
+        MessageBox(NULL, "Failed to register window class", "Error", MB_OK);
+        return -1;
+    }
+
+    // Create window
+    g_hWnd = CreateWindow(
+        "ChaosForgeArena",
+        "ChaosForge Arena",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        WINDOW_WIDTH, WINDOW_HEIGHT,
+        NULL, NULL,
+        hInstance,
+        NULL
+    );
+
+    if (!g_hWnd) {
+        MessageBox(NULL, "Failed to create window", "Error", MB_OK);
+        return -1;
+    }
+
+    // Initialize OpenGL
+    if (!init_opengl(g_hWnd)) {
+        MessageBox(NULL, "Failed to initialize OpenGL", "Error", MB_OK);
+        cleanup_opengl();
+        return -1;
+    }
+
+    // Show window
+    ShowWindow(g_hWnd, nCmdShow);
+    UpdateWindow(g_hWnd);
+
     // Main loop
-    while (!glfwWindowShouldClose(window)) {
-        // Update game logic and render
-        // Handle input
-        static int last_keys[GLFW_KEY_LAST + 1] = {0};
-        
-        // Example: WASD camera movement (continuous)
-        if (keys[GLFW_KEY_W]) cam_pan_z -= 0.2f;
-        if (keys[GLFW_KEY_S]) cam_pan_z += 0.2f;
-        if (keys[GLFW_KEY_A]) cam_pan_x -= 0.2f;
-        if (keys[GLFW_KEY_D]) cam_pan_x += 0.2f;
-        if (keys[GLFW_KEY_ESCAPE]) {
-            running = 0;
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        }
-        
-        // One-time key presses (only trigger on key press, not hold)
-        if (keys[GLFW_KEY_ENTER] && !last_keys[GLFW_KEY_ENTER]) {
-            if (in_menu) { 
-                player_style_global = selected_style; 
-                in_menu = 0;
-                printf("[DEBUG] Selected %s, starting game...\n", fighting_styles[selected_style]);
+    MSG msg;
+    DWORD lastTime = GetTickCount();
+    
+    while (running) {
+        // Handle messages
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) {
+                running = 0;
+                break;
             }
-        }
-        if (keys[GLFW_KEY_C] && !last_keys[GLFW_KEY_C]) {
-            if (in_menu) { 
-                copy_to_clipboard(fighting_styles[selected_style]); 
-                add_log("[Menu] Style copied to clipboard."); 
-            }
-        }
-        if (keys[GLFW_KEY_SPACE] && !last_keys[GLFW_KEY_SPACE]) {
-            if (!in_menu && dynamic_object_count < MAX_DYNAMIC_OBJECTS) {
-                dynamic_objects[dynamic_object_count].x = player_x;
-                dynamic_objects[dynamic_object_count].z = player_z;
-                dynamic_objects[dynamic_object_count].style = player_style_global;
-                dynamic_object_count++;
-                add_log("[Game] New object spawned at player position.");
-            }
-        }
-        if (keys[GLFW_KEY_F12] && !last_keys[GLFW_KEY_F12]) {
-            show_console = !show_console;
-            printf("[DEBUG] Console toggled: %s\n", show_console ? "ON" : "OFF");
-        }
-        if (keys[GLFW_KEY_UP] && !last_keys[GLFW_KEY_UP]) { 
-            if (in_menu) {
-                selected_style = (selected_style + 3) % 4;
-                printf("[DEBUG] Menu selection: %s\n", fighting_styles[selected_style]);
-            } else {
-                cam_height += 0.5f; 
-            }
-        }
-        if (keys[GLFW_KEY_DOWN] && !last_keys[GLFW_KEY_DOWN]) { 
-            if (in_menu) {
-                selected_style = (selected_style + 1) % 4;
-                printf("[DEBUG] Menu selection: %s\n", fighting_styles[selected_style]);
-            } else {
-                cam_height -= 0.5f; 
-            }
-        }
-        if (keys[GLFW_KEY_LEFT] && !last_keys[GLFW_KEY_LEFT]) { 
-            if (!in_menu) cam_angle -= 0.1f; 
-        }
-        if (keys[GLFW_KEY_RIGHT] && !last_keys[GLFW_KEY_RIGHT]) { 
-            if (!in_menu) cam_angle += 0.1f; 
-        }
-        
-        // Update last key states
-        for (int i = 0; i <= GLFW_KEY_LAST; i++) {
-            last_keys[i] = keys[i];
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
         }
 
-        update_game_logic();
-        render_frame();
+        // Update player movement and camera
+        update_player_movement();
 
-        // Swap buffers and poll events
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+        // Update and render at ~60 FPS
+        DWORD currentTime = GetTickCount();
+        if (currentTime - lastTime >= 16) { // ~60 FPS
+            update_game_logic();
+            render_frame();
+            SwapBuffers(g_hDC);
+            lastTime = currentTime;
+        }
+        
+        Sleep(1); // Yield CPU
     }
 
     // Cleanup
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    cleanup_opengl();
     return 0;
 }
