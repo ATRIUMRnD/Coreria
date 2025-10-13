@@ -1,0 +1,7 @@
+EXPORTS
+coreria_initialize_engine
+coreria_shutdown_engine
+coreria_step_simulation
+coreria_get_performance_metrics
+coreria_init_server
+coreria_init_client

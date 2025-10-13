@@ -22,12 +22,42 @@
  * Mikko Mononen memon@inside.org
  */
 
-// NanoSVG header file content goes here.
-// For brevity, this is a placeholder. In a real install, copy the full nanosvg.h from the official repo.
-
 #ifndef NANOSVG_H
 #define NANOSVG_H
 
-// ... full NanoSVG implementation ...
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+// Basic SVG structures for simple graphics
+typedef struct NSVGshape {
+    float* pts;     // Path points
+    int npts;       // Number of points
+    unsigned int fill;  // Fill color (RGBA)
+    unsigned int stroke; // Stroke color (RGBA)
+    float strokeWidth;
+    struct NSVGshape* next;
+} NSVGshape;
+
+typedef struct NSVGimage {
+    float width, height;
+    NSVGshape* shapes;
+} NSVGimage;
+
+// Simple SVG parsing and rendering functions
+NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi);
+NSVGimage* nsvgParse(char* input, const char* units, float dpi);
+void nsvgDelete(NSVGimage* image);
+
+// Basic shape creation functions for procedural graphics
+NSVGimage* nsvgCreateImage(float width, float height);
+NSVGshape* nsvgCreateRect(float x, float y, float w, float h, unsigned int fill);
+NSVGshape* nsvgCreateCircle(float cx, float cy, float r, unsigned int fill);
+NSVGshape* nsvgCreateLine(float x1, float y1, float x2, float y2, unsigned int stroke, float strokeWidth);
+void nsvgAddShape(NSVGimage* image, NSVGshape* shape);
+
+// OpenGL rendering helper
+void nsvgRenderGL(NSVGimage* image, float tx, float ty, float scale);
 
 #endif // NANOSVG_H

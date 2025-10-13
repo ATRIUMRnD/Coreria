@@ -4,7 +4,7 @@ REM ChaosForge Arena Windows Build Script
 echo Building ChaosForge Arena (Windows version)...
 
 REM Clean previous build
-if exist "chaosforge_win.exe" del "chaosforge_win.exe"
+if exist "chaosforge_v2.exe" del "chaosforge_v2.exe"
 del *.o 2>nul
 
 REM Compile object files
@@ -45,7 +45,7 @@ if errorlevel 1 (
 
 REM Link executable
 echo Linking chaosforge_win.exe...
-gcc -o chaosforge_win.exe main_windows.o player_controller.o combat_system.o physics_manager.o game_state.o -lopengl32 -lglu32 -lgdi32 -luser32 -lkernel32 -lm
+gcc -o chaosforge_v2.exe main_windows.o player_controller.o combat_system.o physics_manager.o game_state.o -lopengl32 -lglu32 -lgdi32 -luser32 -lkernel32 -lm
 
 if errorlevel 1 (
     echo Error linking executable
@@ -57,6 +57,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Build successful! chaosforge_win.exe created.
+echo Build successful! chaosforge_v2.exe created.
 echo.
-echo To run the game, execute: chaosforge_win.exe
+echo To run the game, execute: chaosforge_v2.exe
