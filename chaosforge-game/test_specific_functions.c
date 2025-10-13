@@ -32,7 +32,14 @@ int main() {
         int result = init_func();
         printf("init_func returned: %d\n", result);
     } else {
-        printf("init_func not found!\n");
+        printf("init_func not found! Trying to run other functions first...\n");
+        
+        // Try running step simulation to see if it works
+        if (step_func) {
+            printf("Calling step_func(0.016)...\n");
+            int result = step_func(0.016f);
+            printf("step_func returned: %d\n", result);
+        }
     }
     
     if (shutdown_func) {
