@@ -131,6 +131,10 @@ HGLRC g_hRC;
 UnifiedGameState game;
 BOOL keys[256] = {FALSE};
 int mouse_x = 0, mouse_y = 0;
+int last_mouse_x = -1, last_mouse_y = -1;
+int mouse_captured = 0;
+float mouse_sensitivity = 0.15f;
+float cam_move_speed = 0.3f;
 
 // Function prototypes
 BOOL init_unified_system(HWND hWnd);
@@ -145,6 +149,8 @@ void render_arena(void);
 void render_hud(void);
 void check_player_collisions(void);
 void apply_arena_physics(void);
+void update_free_camera(float delta_time);
+void handle_mouse_look(int x, int y);
 LRESULT CALLBACK UnifiedWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 // Initialize the unified system
@@ -190,9 +196,15 @@ BOOL init_unified_system(HWND hWnd) {
     // Initialize game state
     memset(&game, 0, sizeof(UnifiedGameState));
     game.arena_bounds = ARENA_SIZE;
-    game.cam_distance = 15.0f;
-    game.cam_pitch = -20.0f;
-    game.cam_y = 10.0f;
+    
+    // Free camera setup (not following player by default)
+    game.cam_x = 0.0f;
+    game.cam_y = 8.0f;
+    game.cam_z = 15.0f;
+    game.cam_pitch = -15.0f;  // Looking down slightly (non-inverted)
+    game.cam_yaw = 0.0f;      // Facing north
+    game.follow_player = 0;   // Free camera by default
+    
     game.in_menu = 1;
     game.selected_style = 0;
     game.game_running = 1;
@@ -409,8 +421,89 @@ void apply_arena_physics(void) {
     }
 }
 
+// Free camera system
+void update_free_camera(float delta_time) {
+    // Camera movement with WASD (when not controlling player)
+    float move_speed = cam_move_speed;
+    
+    // Speed modifiers
+    if (keys[VK_SHIFT]) move_speed *= 3.0f;  // Fast mode
+    if (keys[VK_CONTROL]) move_speed *= 0.3f; // Slow mode
+    
+    // Calculate movement vectors based on camera rotation
+    float yaw_rad = game.cam_yaw * M_PI / 180.0f;
+    float forward_x = sinf(yaw_rad);
+    float forward_z = cosf(yaw_rad);
+    float right_x = cosf(yaw_rad);
+    float right_z = -sinf(yaw_rad);
+    
+    // WASD movement (only when not in menu and not controlling player directly)
+    if (!game.in_menu && !game.follow_player) {
+        if (keys['W']) {
+            game.cam_x += forward_x * move_speed;
+            game.cam_z += forward_z * move_speed;
+        }
+        if (keys['S']) {
+            game.cam_x -= forward_x * move_speed;
+            game.cam_z -= forward_z * move_speed;
+        }
+        if (keys['A']) {
+            game.cam_x += right_x * move_speed;
+            game.cam_z += right_z * move_speed;
+        }
+        if (keys['D']) {
+            game.cam_x -= right_x * move_speed;
+            game.cam_z -= right_z * move_speed;
+        }
+        if (keys['Q'] || keys[VK_SPACE]) {
+            game.cam_y += move_speed;  // Up
+        }
+        if (keys['E'] || keys['C']) {
+            game.cam_y -= move_speed;  // Down
+        }
+    }
+    
+    // Constrain camera position
+    if (game.cam_y < 0.5f) game.cam_y = 0.5f;
+    if (game.cam_y > 50.0f) game.cam_y = 50.0f;
+}
+
+// Handle mouse look (non-inverted)
+void handle_mouse_look(int x, int y) {
+    if (last_mouse_x == -1) {
+        last_mouse_x = x;
+        last_mouse_y = y;
+        return;
+    }
+    
+    // Calculate mouse movement
+    int dx = x - last_mouse_x;
+    int dy = y - last_mouse_y;
+    
+    // Only apply mouse look when right mouse button is held or mouse is captured
+    if (keys[VK_RBUTTON] || mouse_captured) {
+        // Update camera rotation (non-inverted controls)
+        game.cam_yaw += dx * mouse_sensitivity;
+        game.cam_pitch += dy * mouse_sensitivity;  // Non-inverted: + for down movement
+        
+        // Constrain pitch to prevent flipping
+        if (game.cam_pitch > 89.0f) game.cam_pitch = 89.0f;
+        if (game.cam_pitch < -89.0f) game.cam_pitch = -89.0f;
+        
+        // Wrap yaw around 360 degrees
+        while (game.cam_yaw >= 360.0f) game.cam_yaw -= 360.0f;
+        while (game.cam_yaw < 0.0f) game.cam_yaw += 360.0f;
+    }
+    
+    last_mouse_x = x;
+    last_mouse_y = y;
+}
+
 // Update the entire unified game
 void update_unified_game(float delta_time) {
+    // Always update free camera
+    update_free_camera(delta_time);
+    
     if (game.in_menu) return;
     
     game.frame_count++;
@@ -419,12 +512,24 @@ void update_unified_game(float delta_time) {
     UnifiedPlayer* local_player = &game.players[game.local_player_id];
     PlayerInput* input = &local_player->input;
     
-    // Map keyboard to input
-    input->move_forward = keys['W'];
-    input->move_backward = keys['S'];
-    input->move_left = keys['A'];
-    input->move_right = keys['D'];
-    input->sprint = keys[VK_SHIFT];
+    // Map keyboard to input (WASD controls player when following, combat always available)
+    if (game.follow_player) {
+        // When following player, WASD controls the player
+        input->move_forward = keys['W'];
+        input->move_backward = keys['S'];
+        input->move_left = keys['A'];
+        input->move_right = keys['D'];
+        input->sprint = keys[VK_SHIFT];
+    } else {
+        // When in free camera mode, player doesn't move with WASD
+        input->move_forward = 0;
+        input->move_backward = 0;
+        input->move_left = 0;
+        input->move_right = 0;
+        input->sprint = 0;
+    }
+    
+    // Combat controls always available
     input->block = keys[VK_SPACE];
     input->attack_light = keys[VK_LBUTTON];
     input->attack_heavy = keys[VK_RBUTTON];
@@ -761,12 +866,18 @@ void render_unified_game(void) {
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
         
-        // Camera setup
-        float cam_x = game.cam_x + sinf(game.cam_yaw * M_PI / 180.0f) * game.cam_distance;
-        float cam_z = game.cam_z + cosf(game.cam_yaw * M_PI / 180.0f) * game.cam_distance;
-        float cam_y = game.cam_y + sinf(game.cam_pitch * M_PI / 180.0f) * game.cam_distance;
+        // Free camera setup
+        float yaw_rad = game.cam_yaw * M_PI / 180.0f;
+        float pitch_rad = game.cam_pitch * M_PI / 180.0f;
         
-        gluLookAt(cam_x, cam_y, cam_z, game.cam_x, game.cam_y, game.cam_z, 0, 1, 0);
+        // Calculate look direction based on yaw and pitch
+        float look_x = game.cam_x + sinf(yaw_rad) * cosf(pitch_rad);
+        float look_y = game.cam_y + sinf(pitch_rad);
+        float look_z = game.cam_z + cosf(yaw_rad) * cosf(pitch_rad);
+        
+        gluLookAt(game.cam_x, game.cam_y, game.cam_z,  // Camera position
+                  look_x, look_y, look_z,              // Look at point
+                  0, 1, 0);                            // Up vector
         
         // Lighting setup
         float light_pos[] = {10.0f, 20.0f, 10.0f, 1.0f};
@@ -868,6 +979,15 @@ LRESULT CALLBACK UnifiedWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
                     case VK_ESCAPE:
                         game.in_menu = 1;
                         break;
+                    case VK_TAB:
+                        // Toggle camera mode between free camera and following player
+                        game.follow_player = !game.follow_player;
+                        if (game.follow_player) {
+                            printf("[CAMERA] Following player mode\n");
+                        } else {
+                            printf("[CAMERA] Free camera mode - Hold right mouse to look around\n");
+                        }
+                        break;
                     case VK_F1:
                         // Add AI opponent for testing
                         if (game.num_players < MAX_PLAYERS) {
@@ -894,9 +1014,19 @@ LRESULT CALLBACK UnifiedWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
             
         case WM_KEYUP:
             keys[wParam] = FALSE;
+            // ESC key releases mouse capture in free camera mode
+            if (wParam == VK_ESCAPE && !game.follow_player) {
+                ReleaseCapture();
+                ShowCursor(TRUE);
+            }
             return 0;
             
         case WM_LBUTTONDOWN:
+            if (!game.follow_player) {
+                // In free camera mode, capture mouse for look control
+                SetCapture(hWnd);
+                ShowCursor(FALSE);
+            }
             keys[VK_LBUTTON] = TRUE;
             return 0;
             
@@ -915,6 +1045,7 @@ LRESULT CALLBACK UnifiedWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
         case WM_MOUSEMOVE:
             mouse_x = LOWORD(lParam);
             mouse_y = HIWORD(lParam);
+            handle_mouse_look(mouse_x, mouse_y);
             return 0;
             
         case WM_DESTROY:
@@ -989,9 +1120,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     
     printf("\n=== CONTROLS ===\n");
     printf("MENU: UP/DOWN - Select style, ENTER - Start game\n");
-    printf("GAME: WASD - Move, SHIFT - Sprint, SPACE - Block\n");
+    printf("GAME: WASD - Move (player following) / Camera (free mode)\n");
+    printf("      SHIFT - Sprint, SPACE - Block\n");
     printf("      Left Click - Light attack, Right Click - Heavy attack\n");
-    printf("      F1 - Add AI opponent, ESC - Back to menu\n\n");
+    printf("      TAB - Toggle camera mode (Follow/Free)\n");
+    printf("      ESC - Release mouse (free camera) / Back to menu\n");
+    printf("      F1 - Add AI opponent\n\n");
     
     // Main game loop
     MSG msg;
