@@ -147,6 +147,7 @@ void update_player_combat(UnifiedPlayer* player);
 void render_player(UnifiedPlayer* player);
 void render_arena(void);
 void render_hud(void);
+void render_text(float x, float y, const char* text, float r, float g, float b);
 void check_player_collisions(void);
 void apply_arena_physics(void);
 void update_free_camera(float delta_time);
@@ -690,6 +691,232 @@ void render_arena(void) {
     glEnable(GL_LIGHTING);
 }
 
+// Draw a single character using simple line patterns
+void draw_char(float x, float y, char c, float char_width, float char_height) {
+    float w = char_width - 2;
+    float h = char_height - 2;
+    
+    glBegin(GL_LINES);
+    
+    switch (c) {
+        case 'A': case 'a':
+            glVertex2f(x, y + h); glVertex2f(x + w/2, y);      // Left diagonal
+            glVertex2f(x + w/2, y); glVertex2f(x + w, y + h);  // Right diagonal  
+            glVertex2f(x + w/4, y + h/2); glVertex2f(x + 3*w/4, y + h/2); // Cross bar
+            break;
+        case 'B': case 'b':
+            glVertex2f(x, y); glVertex2f(x, y + h);            // Left line
+            glVertex2f(x, y); glVertex2f(x + 3*w/4, y);        // Top line
+            glVertex2f(x, y + h/2); glVertex2f(x + 3*w/4, y + h/2); // Middle line
+            glVertex2f(x, y + h); glVertex2f(x + 3*w/4, y + h); // Bottom line
+            glVertex2f(x + 3*w/4, y); glVertex2f(x + 3*w/4, y + h/2); // Right top
+            glVertex2f(x + 3*w/4, y + h/2); glVertex2f(x + 3*w/4, y + h); // Right bottom
+            break;
+        case 'C': case 'c':
+            glVertex2f(x + w, y + w/4); glVertex2f(x + w/4, y); // Top right curve
+            glVertex2f(x + w/4, y); glVertex2f(x, y + h/4);     // Top left curve  
+            glVertex2f(x, y + h/4); glVertex2f(x, y + 3*h/4);   // Left line
+            glVertex2f(x, y + 3*h/4); glVertex2f(x + w/4, y + h); // Bottom left curve
+            glVertex2f(x + w/4, y + h); glVertex2f(x + w, y + 3*h/4); // Bottom right curve
+            break;
+        case 'D': case 'd':
+            glVertex2f(x, y); glVertex2f(x, y + h);            // Left line
+            glVertex2f(x, y); glVertex2f(x + 3*w/4, y);        // Top line
+            glVertex2f(x, y + h); glVertex2f(x + 3*w/4, y + h); // Bottom line
+            glVertex2f(x + 3*w/4, y); glVertex2f(x + w, y + h/4); // Top right curve
+            glVertex2f(x + w, y + h/4); glVertex2f(x + w, y + 3*h/4); // Right line
+            glVertex2f(x + w, y + 3*h/4); glVertex2f(x + 3*w/4, y + h); // Bottom right curve
+            break;
+        case 'E': case 'e':
+            glVertex2f(x, y); glVertex2f(x, y + h);            // Left line
+            glVertex2f(x, y); glVertex2f(x + w, y);            // Top line
+            glVertex2f(x, y + h/2); glVertex2f(x + 3*w/4, y + h/2); // Middle line
+            glVertex2f(x, y + h); glVertex2f(x + w, y + h);    // Bottom line
+            break;
+        case 'F': case 'f':
+            glVertex2f(x, y); glVertex2f(x, y + h);            // Left line
+            glVertex2f(x, y); glVertex2f(x + w, y);            // Top line
+            glVertex2f(x, y + h/2); glVertex2f(x + 3*w/4, y + h/2); // Middle line
+            break;
+        case 'G': case 'g':
+            glVertex2f(x + w, y + w/4); glVertex2f(x + w/4, y); // Top right curve
+            glVertex2f(x + w/4, y); glVertex2f(x, y + h/4);     // Top left curve  
+            glVertex2f(x, y + h/4); glVertex2f(x, y + 3*h/4);   // Left line
+            glVertex2f(x, y + 3*h/4); glVertex2f(x + w/4, y + h); // Bottom left curve
+            glVertex2f(x + w/4, y + h); glVertex2f(x + w, y + 3*h/4); // Bottom right curve
+            glVertex2f(x + w, y + 3*h/4); glVertex2f(x + w, y + h/2); // Right line
+            glVertex2f(x + w/2, y + h/2); glVertex2f(x + w, y + h/2); // Cross line
+            break;
+        case 'H': case 'h':
+            glVertex2f(x, y); glVertex2f(x, y + h);            // Left line
+            glVertex2f(x + w, y); glVertex2f(x + w, y + h);    // Right line
+            glVertex2f(x, y + h/2); glVertex2f(x + w, y + h/2); // Cross line
+            break;
+        case 'I': case 'i':
+            glVertex2f(x, y); glVertex2f(x + w, y);            // Top line
+            glVertex2f(x + w/2, y); glVertex2f(x + w/2, y + h); // Center line
+            glVertex2f(x, y + h); glVertex2f(x + w, y + h);    // Bottom line
+            break;
+        case 'L': case 'l':
+            glVertex2f(x, y); glVertex2f(x, y + h);            // Left line
+            glVertex2f(x, y + h); glVertex2f(x + w, y + h);    // Bottom line
+            break;
+        case 'M': case 'm':
+            glVertex2f(x, y + h); glVertex2f(x, y);            // Left line
+            glVertex2f(x, y); glVertex2f(x + w/2, y + h/2);    // Left diagonal
+            glVertex2f(x + w/2, y + h/2); glVertex2f(x + w, y); // Right diagonal
+            glVertex2f(x + w, y); glVertex2f(x + w, y + h);    // Right line
+            break;
+        case 'N': case 'n':
+            glVertex2f(x, y + h); glVertex2f(x, y);            // Left line
+            glVertex2f(x, y); glVertex2f(x + w, y + h);        // Diagonal
+            glVertex2f(x + w, y + h); glVertex2f(x + w, y);    // Right line
+            break;
+        case 'O': case 'o':
+            glVertex2f(x + w/4, y); glVertex2f(x + 3*w/4, y);   // Top line
+            glVertex2f(x + 3*w/4, y); glVertex2f(x + w, y + h/4); // Top right curve
+            glVertex2f(x + w, y + h/4); glVertex2f(x + w, y + 3*h/4); // Right line
+            glVertex2f(x + w, y + 3*h/4); glVertex2f(x + 3*w/4, y + h); // Bottom right curve
+            glVertex2f(x + 3*w/4, y + h); glVertex2f(x + w/4, y + h); // Bottom line
+            glVertex2f(x + w/4, y + h); glVertex2f(x, y + 3*h/4); // Bottom left curve
+            glVertex2f(x, y + 3*h/4); glVertex2f(x, y + h/4);   // Left line
+            glVertex2f(x, y + h/4); glVertex2f(x + w/4, y);     // Top left curve
+            break;
+        case 'P': case 'p':
+            glVertex2f(x, y); glVertex2f(x, y + h);            // Left line
+            glVertex2f(x, y); glVertex2f(x + 3*w/4, y);        // Top line
+            glVertex2f(x + 3*w/4, y); glVertex2f(x + w, y + h/4); // Top right curve
+            glVertex2f(x + w, y + h/4); glVertex2f(x + 3*w/4, y + h/2); // Right curve
+            glVertex2f(x + 3*w/4, y + h/2); glVertex2f(x, y + h/2); // Middle line
+            break;
+        case 'R': case 'r':
+            glVertex2f(x, y); glVertex2f(x, y + h);            // Left line
+            glVertex2f(x, y); glVertex2f(x + 3*w/4, y);        // Top line
+            glVertex2f(x + 3*w/4, y); glVertex2f(x + w, y + h/4); // Top right curve
+            glVertex2f(x + w, y + h/4); glVertex2f(x + 3*w/4, y + h/2); // Right curve
+            glVertex2f(x + 3*w/4, y + h/2); glVertex2f(x, y + h/2); // Middle line
+            glVertex2f(x + w/2, y + h/2); glVertex2f(x + w, y + h); // Diagonal leg
+            break;
+        case 'S': case 's':
+            glVertex2f(x + w, y + h/4); glVertex2f(x + 3*w/4, y); // Top right curve
+            glVertex2f(x + 3*w/4, y); glVertex2f(x + w/4, y);   // Top line
+            glVertex2f(x + w/4, y); glVertex2f(x, y + h/4);     // Top left curve
+            glVertex2f(x, y + h/4); glVertex2f(x + 3*w/4, y + h/2); // Middle diagonal
+            glVertex2f(x + 3*w/4, y + h/2); glVertex2f(x + w, y + 3*h/4); // Bottom right curve start
+            glVertex2f(x + w, y + 3*h/4); glVertex2f(x + 3*w/4, y + h); // Bottom right curve
+            glVertex2f(x + 3*w/4, y + h); glVertex2f(x + w/4, y + h); // Bottom line
+            glVertex2f(x + w/4, y + h); glVertex2f(x, y + 3*h/4); // Bottom left curve
+            break;
+        case 'T': case 't':
+            glVertex2f(x, y); glVertex2f(x + w, y);            // Top line
+            glVertex2f(x + w/2, y); glVertex2f(x + w/2, y + h); // Center line
+            break;
+        case 'U': case 'u':
+            glVertex2f(x, y); glVertex2f(x, y + 3*h/4);        // Left line
+            glVertex2f(x, y + 3*h/4); glVertex2f(x + w/4, y + h); // Bottom left curve
+            glVertex2f(x + w/4, y + h); glVertex2f(x + 3*w/4, y + h); // Bottom line
+            glVertex2f(x + 3*w/4, y + h); glVertex2f(x + w, y + 3*h/4); // Bottom right curve
+            glVertex2f(x + w, y + 3*h/4); glVertex2f(x + w, y); // Right line
+            break;
+        case 'V': case 'v':
+            glVertex2f(x, y); glVertex2f(x + w/2, y + h);      // Left diagonal
+            glVertex2f(x + w/2, y + h); glVertex2f(x + w, y);  // Right diagonal
+            break;
+        case 'W': case 'w':
+            glVertex2f(x, y); glVertex2f(x + w/4, y + h);      // Left diagonal
+            glVertex2f(x + w/4, y + h); glVertex2f(x + w/2, y + h/2); // Left inner diagonal
+            glVertex2f(x + w/2, y + h/2); glVertex2f(x + 3*w/4, y + h); // Right inner diagonal
+            glVertex2f(x + 3*w/4, y + h); glVertex2f(x + w, y); // Right diagonal
+            break;
+        case 'X': case 'x':
+            glVertex2f(x, y); glVertex2f(x + w, y + h);        // Left to right diagonal
+            glVertex2f(x + w, y); glVertex2f(x, y + h);        // Right to left diagonal
+            break;
+        case 'Y': case 'y':
+            glVertex2f(x, y); glVertex2f(x + w/2, y + h/2);    // Left diagonal to center
+            glVertex2f(x + w, y); glVertex2f(x + w/2, y + h/2); // Right diagonal to center
+            glVertex2f(x + w/2, y + h/2); glVertex2f(x + w/2, y + h); // Center to bottom
+            break;
+        case 'Z': case 'z':
+            glVertex2f(x, y); glVertex2f(x + w, y);            // Top line
+            glVertex2f(x + w, y); glVertex2f(x, y + h);        // Diagonal
+            glVertex2f(x, y + h); glVertex2f(x + w, y + h);    // Bottom line
+            break;
+        case '0':
+            glVertex2f(x + w/4, y); glVertex2f(x + 3*w/4, y);   // Top line
+            glVertex2f(x + 3*w/4, y); glVertex2f(x + w, y + h/4); // Top right curve
+            glVertex2f(x + w, y + h/4); glVertex2f(x + w, y + 3*h/4); // Right line
+            glVertex2f(x + w, y + 3*h/4); glVertex2f(x + 3*w/4, y + h); // Bottom right curve
+            glVertex2f(x + 3*w/4, y + h); glVertex2f(x + w/4, y + h); // Bottom line
+            glVertex2f(x + w/4, y + h); glVertex2f(x, y + 3*h/4); // Bottom left curve
+            glVertex2f(x, y + 3*h/4); glVertex2f(x, y + h/4);   // Left line
+            glVertex2f(x, y + h/4); glVertex2f(x + w/4, y);     // Top left curve
+            glVertex2f(x, y + h/4); glVertex2f(x + w, y + 3*h/4); // Diagonal slash
+            break;
+        case '1':
+            glVertex2f(x + w/2, y); glVertex2f(x + w/2, y + h); // Center line
+            glVertex2f(x + w/4, y + h/4); glVertex2f(x + w/2, y); // Top diagonal
+            glVertex2f(x, y + h); glVertex2f(x + w, y + h);    // Bottom line
+            break;
+        case '2':
+            glVertex2f(x, y + h/4); glVertex2f(x + w/4, y);     // Top left curve
+            glVertex2f(x + w/4, y); glVertex2f(x + 3*w/4, y);   // Top line
+            glVertex2f(x + 3*w/4, y); glVertex2f(x + w, y + h/4); // Top right curve
+            glVertex2f(x + w, y + h/4); glVertex2f(x, y + h);   // Diagonal to bottom left
+            glVertex2f(x, y + h); glVertex2f(x + w, y + h);     // Bottom line
+            break;
+        case '3':
+            glVertex2f(x, y + h/4); glVertex2f(x + w/4, y);     // Top left curve
+            glVertex2f(x + w/4, y); glVertex2f(x + 3*w/4, y);   // Top line
+            glVertex2f(x + 3*w/4, y); glVertex2f(x + w, y + h/4); // Top right curve
+            glVertex2f(x + w, y + h/4); glVertex2f(x + 3*w/4, y + h/2); // Right middle curve
+            glVertex2f(x + 3*w/4, y + h/2); glVertex2f(x + w/2, y + h/2); // Middle line
+            glVertex2f(x + 3*w/4, y + h/2); glVertex2f(x + w, y + 3*h/4); // Right bottom curve start
+            glVertex2f(x + w, y + 3*h/4); glVertex2f(x + 3*w/4, y + h); // Bottom right curve
+            glVertex2f(x + 3*w/4, y + h); glVertex2f(x + w/4, y + h); // Bottom line
+            glVertex2f(x + w/4, y + h); glVertex2f(x, y + 3*h/4); // Bottom left curve
+            break;
+        case ' ':
+            break; // Space - no drawing
+        case ':':
+            glVertex2f(x + w/2, y + h/4); glVertex2f(x + w/2, y + h/4); // Top dot (point)
+            glVertex2f(x + w/2, y + 3*h/4); glVertex2f(x + w/2, y + 3*h/4); // Bottom dot (point)
+            break;
+        case '/':
+            glVertex2f(x, y + h); glVertex2f(x + w, y);         // Diagonal slash
+            break;
+        case '-':
+            glVertex2f(x + w/4, y + h/2); glVertex2f(x + 3*w/4, y + h/2); // Horizontal line
+            break;
+        default:
+            // Unknown character - draw a small rectangle
+            glVertex2f(x + w/4, y + h/4); glVertex2f(x + 3*w/4, y + h/4);
+            glVertex2f(x + 3*w/4, y + h/4); glVertex2f(x + 3*w/4, y + 3*h/4);
+            glVertex2f(x + 3*w/4, y + 3*h/4); glVertex2f(x + w/4, y + 3*h/4);
+            glVertex2f(x + w/4, y + 3*h/4); glVertex2f(x + w/4, y + h/4);
+            break;
+    }
+    
+    glEnd();
+}
+
+// Text rendering function using bitmap characters
+void render_text(float x, float y, const char* text, float r, float g, float b) {
+    glColor3f(r, g, b);
+    glDisable(GL_LIGHTING);
+    glLineWidth(2.0f);
+    
+    float char_width = 12.0f;
+    float char_height = 16.0f;
+    
+    for (const char* c = text; *c != '\0'; c++) {
+        draw_char(x, y, *c, char_width, char_height);
+        x += char_width;
+    }
+    
+    glLineWidth(1.0f);
+}
+
 // Render HUD and UI
 void render_hud(void) {
     // Switch to orthographic projection for HUD
@@ -773,6 +1000,60 @@ void render_hud(void) {
         glEnd();
     }
     
+    // Add text labels with fighting style colors
+    char health_text[32];
+    char stamina_text[32];
+    char lives_text[32];
+    char style_text[64];
+    
+    sprintf(health_text, "Health: %d/%d", player->health, player->max_health);
+    sprintf(stamina_text, "Stamina: %d/%d", player->stamina, player->max_stamina);
+    sprintf(lives_text, "Lives: %d", player->lives);
+    
+    // Style-specific colors and names
+    float style_r = 1.0f, style_g = 1.0f, style_b = 1.0f;
+    const char* style_name = "Unknown";
+    
+    switch (game.selected_style) {
+        case 0: // Balanced
+            style_r = 0.0f; style_g = 1.0f; style_b = 1.0f; // Cyan
+            style_name = "Balanced Fighter";
+            break;
+        case 1: // Aggressive
+            style_r = 1.0f; style_g = 0.0f; style_b = 0.0f; // Red
+            style_name = "Aggressive Brawler";
+            break;
+        case 2: // Defensive
+            style_r = 0.0f; style_g = 0.0f; style_b = 1.0f; // Blue
+            style_name = "Defensive Guardian";
+            break;
+        case 3: // Technical
+            style_r = 1.0f; style_g = 1.0f; style_b = 0.0f; // Yellow
+            style_name = "Technical Master";
+            break;
+    }
+    
+    sprintf(style_text, "Style: %s", style_name);
+    
+    // Render text labels
+    render_text(230, 25, health_text, 1.0f, 0.0f, 0.0f); // Red for health
+    render_text(230, 55, stamina_text, 0.0f, 1.0f, 0.0f); // Green for stamina
+    render_text(230, 85, lives_text, 1.0f, 1.0f, 1.0f); // White for lives
+    render_text(20, 120, style_text, style_r, style_g, style_b); // Style color
+    
+    // Camera mode indicator
+    const char* camera_text = game.follow_player ? "Camera: Following Player" : "Camera: Free Mode";
+    render_text(20, 140, camera_text, 0.8f, 0.8f, 0.8f); // Light gray
+    
+    // Control hints
+    if (!game.follow_player) {
+        render_text(20, 160, "WASD: Move Camera, Mouse: Look Around", 0.6f, 0.6f, 1.0f);
+        render_text(20, 180, "TAB: Follow Player, ESC: Release Mouse", 0.6f, 0.6f, 1.0f);
+    } else {
+        render_text(20, 160, "WASD: Move Player, TAB: Free Camera", 0.6f, 1.0f, 0.6f);
+        render_text(20, 180, "LClick: Attack, RClick: Heavy Attack", 0.6f, 1.0f, 0.6f);
+    }
+    
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_LIGHTING);
     
@@ -815,8 +1096,18 @@ void render_unified_game(void) {
         glVertex2f(400, 150);
         glEnd();
         
+        // Title text
+        render_text(450, 115, "CHAOSFORGE ARENA - SELECT FIGHTING STYLE", 0.0f, 0.0f, 0.0f);
+        
         // Style selection rectangles
-        const char* style_names[] = {"BRAWLER", "STRIKER", "PHANTOM", "TITAN"};
+        const char* style_names[] = {"BALANCED FIGHTER", "AGGRESSIVE BRAWLER", "DEFENSIVE GUARDIAN", "TECHNICAL MASTER"};
+        const char* style_descriptions[] = {
+            "Balanced stats - Good for beginners",
+            "High damage, fast attacks - High risk",
+            "High defense, strong blocks - Steady fighter", 
+            "Precise combos, special moves - Advanced"
+        };
+        
         for (int i = 0; i < 4; i++) {
             if (i == game.selected_style) {
                 glColor3f(1.0f, 1.0f, 0.0f); // Selected - Yellow
@@ -845,6 +1136,18 @@ void render_unified_game(void) {
             glVertex2f(790, y + 50);
             glVertex2f(410, y + 50);
             glEnd();
+            
+            // Style name text with style-specific colors
+            float text_r = 1.0f, text_g = 1.0f, text_b = 1.0f;
+            switch (i) {
+                case 0: text_r = 0.0f; text_g = 1.0f; text_b = 1.0f; break; // Cyan - Balanced
+                case 1: text_r = 1.0f; text_g = 0.0f; text_b = 0.0f; break; // Red - Aggressive
+                case 2: text_r = 0.0f; text_g = 0.0f; text_b = 1.0f; break; // Blue - Defensive  
+                case 3: text_r = 1.0f; text_g = 1.0f; text_b = 0.0f; break; // Yellow - Technical
+            }
+            
+            render_text(420, y + 15, style_names[i], text_r, text_g, text_b);
+            render_text(420, y + 30, style_descriptions[i], 0.8f, 0.8f, 0.8f);
         }
         
         // Instructions
@@ -855,6 +1158,11 @@ void render_unified_game(void) {
         glVertex2f(900, 720);
         glVertex2f(300, 720);
         glEnd();
+        
+        // Instructions text
+        render_text(320, 660, "UP/DOWN ARROWS: Select Fighting Style", 0.0f, 0.0f, 0.0f);
+        render_text(320, 680, "ENTER: Start Arena Combat", 0.0f, 0.0f, 0.0f);
+        render_text(320, 700, "ESC: Exit Game", 0.0f, 0.0f, 0.0f);
         
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_LIGHTING);
