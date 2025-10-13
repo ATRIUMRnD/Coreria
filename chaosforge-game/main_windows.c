@@ -855,6 +855,65 @@ void handle_mouse_input(int x, int y) {
     mouse_last_y = y;
 }
 
+// SVG Graphics Implementation
+void init_svg_graphics(void) {
+    // Initialize SVG graphics for menu and HUD
+    menu_graphics = create_menu_graphics();
+    hud_graphics = create_hud_graphics();
+    printf("[DEBUG] SVG graphics initialized\n");
+}
+
+void cleanup_svg_graphics(void) {
+    if (menu_graphics) {
+        nsvgDelete(menu_graphics);
+        menu_graphics = NULL;
+    }
+    if (hud_graphics) {
+        nsvgDelete(hud_graphics);
+        hud_graphics = NULL;
+    }
+    printf("[DEBUG] SVG graphics cleaned up\n");
+}
+
+NSVGimage* create_menu_graphics(void) {
+    // Create procedural SVG graphics for menu decorations
+    NSVGimage* image = nsvgCreateImage(800, 600);
+    if (!image) return NULL;
+
+    // Add decorative elements around the menu
+    NSVGshape* border = nsvgCreateRect(90, 70, 620, 460, 0x40404080); // Semi-transparent border
+    nsvgAddShape(image, border);
+
+    // Add corner decorations
+    NSVGshape* corner1 = nsvgCreateCircle(100, 80, 10, 0x6060A0FF);
+    NSVGshape* corner2 = nsvgCreateCircle(700, 80, 10, 0x6060A0FF);
+    NSVGshape* corner3 = nsvgCreateCircle(100, 520, 10, 0x6060A0FF);
+    NSVGshape* corner4 = nsvgCreateCircle(700, 520, 10, 0x6060A0FF);
+
+    nsvgAddShape(image, corner1);
+    nsvgAddShape(image, corner2);
+    nsvgAddShape(image, corner3);
+    nsvgAddShape(image, corner4);
+
+    return image;
+}
+
+NSVGimage* create_hud_graphics(void) {
+    // Create procedural SVG graphics for HUD elements
+    NSVGimage* image = nsvgCreateImage(800, 600);
+    if (!image) return NULL;
+
+    // Add HUD frame
+    NSVGshape* hud_frame = nsvgCreateRect(5, 475, 310, 120, 0x20202040);
+    nsvgAddShape(image, hud_frame);
+
+    // Add status indicators
+    NSVGshape* status_dot = nsvgCreateCircle(25, 580, 5, 0x00FF00FF); // Green status dot
+    nsvgAddShape(image, status_dot);
+
+    return image;
+}
+
 BOOL init_opengl(HWND hWnd) {
     PIXELFORMATDESCRIPTOR pfd = {
         sizeof(PIXELFORMATDESCRIPTOR),
