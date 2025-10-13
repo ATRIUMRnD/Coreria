@@ -104,6 +104,9 @@ void draw_dynamic_objects(void);
 void render_scene(GameState* state, int training_phase, int master_style, int player_style);
 void copy_to_clipboard(const char* text);
 void glut_sphere_approx(float radius, int subdivisions);
+void draw_bitmap_char(char c, float x, float y, float size);
+void draw_text(const char* text, float x, float y, float size);
+void draw_game_hud(void);
 void update_game_logic(void);
 void update_player_movement(void);
 void handle_mouse_input(int x, int y);
@@ -197,6 +200,78 @@ void glut_sphere_approx(float radius, int subdivisions) {
     glEnd();
 }
 
+// Simple 8x8 bitmap font data for basic characters
+static unsigned char font_data[256][8] = {
+    // Space (32)
+    [' '] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    // A (65)
+    ['A'] = {0x18, 0x24, 0x42, 0x42, 0x7E, 0x42, 0x42, 0x00},
+    ['B'] = {0x7C, 0x42, 0x42, 0x7C, 0x42, 0x42, 0x7C, 0x00},
+    ['C'] = {0x3C, 0x42, 0x40, 0x40, 0x40, 0x42, 0x3C, 0x00},
+    ['D'] = {0x78, 0x44, 0x42, 0x42, 0x42, 0x44, 0x78, 0x00},
+    ['E'] = {0x7E, 0x40, 0x40, 0x78, 0x40, 0x40, 0x7E, 0x00},
+    ['F'] = {0x7E, 0x40, 0x40, 0x78, 0x40, 0x40, 0x40, 0x00},
+    ['G'] = {0x3C, 0x42, 0x40, 0x4E, 0x42, 0x42, 0x3C, 0x00},
+    ['H'] = {0x42, 0x42, 0x42, 0x7E, 0x42, 0x42, 0x42, 0x00},
+    ['I'] = {0x3E, 0x08, 0x08, 0x08, 0x08, 0x08, 0x3E, 0x00},
+    ['L'] = {0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x7E, 0x00},
+    ['M'] = {0x42, 0x66, 0x5A, 0x42, 0x42, 0x42, 0x42, 0x00},
+    ['N'] = {0x42, 0x62, 0x52, 0x4A, 0x46, 0x42, 0x42, 0x00},
+    ['O'] = {0x3C, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C, 0x00},
+    ['P'] = {0x7C, 0x42, 0x42, 0x7C, 0x40, 0x40, 0x40, 0x00},
+    ['R'] = {0x7C, 0x42, 0x42, 0x7C, 0x44, 0x42, 0x41, 0x00},
+    ['S'] = {0x3C, 0x42, 0x40, 0x3C, 0x02, 0x42, 0x3C, 0x00},
+    ['T'] = {0x7F, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x00},
+    ['U'] = {0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C, 0x00},
+    ['W'] = {0x41, 0x41, 0x41, 0x49, 0x49, 0x55, 0x63, 0x00},
+    ['w'] = {0x00, 0x00, 0x41, 0x49, 0x49, 0x55, 0x63, 0x00},
+    ['l'] = {0x18, 0x08, 0x08, 0x08, 0x08, 0x08, 0x1C, 0x00},
+    ['e'] = {0x00, 0x00, 0x3C, 0x42, 0x7E, 0x40, 0x3C, 0x00},
+    ['r'] = {0x00, 0x00, 0x5C, 0x62, 0x40, 0x40, 0x40, 0x00},
+    ['a'] = {0x00, 0x00, 0x3C, 0x02, 0x3E, 0x42, 0x3E, 0x00},
+    ['k'] = {0x40, 0x40, 0x44, 0x48, 0x70, 0x48, 0x44, 0x00},
+    ['t'] = {0x10, 0x10, 0x7C, 0x10, 0x10, 0x12, 0x0C, 0x00},
+    ['i'] = {0x00, 0x08, 0x00, 0x18, 0x08, 0x08, 0x1C, 0x00},
+    ['n'] = {0x00, 0x00, 0x58, 0x64, 0x44, 0x44, 0x44, 0x00},
+    ['o'] = {0x00, 0x00, 0x38, 0x44, 0x44, 0x44, 0x38, 0x00},
+    ['m'] = {0x00, 0x00, 0x68, 0x54, 0x54, 0x54, 0x54, 0x00},
+    ['h'] = {0x40, 0x40, 0x58, 0x64, 0x44, 0x44, 0x44, 0x00},
+    ['s'] = {0x00, 0x00, 0x3C, 0x40, 0x38, 0x04, 0x78, 0x00},
+    ['>'] = {0x10, 0x08, 0x04, 0x02, 0x04, 0x08, 0x10, 0x00},
+    [':'] = {0x00, 0x18, 0x18, 0x00, 0x18, 0x18, 0x00, 0x00},
+    ['/'] = {0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x00},
+    ['='] = {0x00, 0x00, 0x7E, 0x00, 0x7E, 0x00, 0x00, 0x00},
+    ['-'] = {0x00, 0x00, 0x00, 0x7E, 0x00, 0x00, 0x00, 0x00},
+    ['u'] = {0x00, 0x00, 0x44, 0x44, 0x44, 0x4C, 0x34, 0x00},
+    ['p'] = {0x00, 0x00, 0x78, 0x44, 0x44, 0x78, 0x40, 0x40},
+    ['d'] = {0x04, 0x04, 0x3C, 0x44, 0x44, 0x4C, 0x34, 0x00},
+};
+
+void draw_bitmap_char(char c, float x, float y, float size) {
+    if (c < 0 || c > 255) c = ' ';
+    
+    glBegin(GL_POINTS);
+    for (int row = 0; row < 8; row++) {
+        unsigned char byte = font_data[(unsigned char)c][row];
+        for (int col = 0; col < 8; col++) {
+            if (byte & (0x80 >> col)) {
+                glVertex2f(x + col * size, y - row * size);
+            }
+        }
+    }
+    glEnd();
+}
+
+void draw_text(const char* text, float x, float y, float size) {
+    float current_x = x;
+    glPointSize(size);
+    
+    for (int i = 0; text[i] != '\0'; i++) {
+        draw_bitmap_char(text[i], current_x, y, size);
+        current_x += 8 * size + size; // 8 pixels wide + spacing
+    }
+}
+
 void draw_background(void) {
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
@@ -218,51 +293,128 @@ void draw_background(void) {
 }
 
 void draw_menu(void) {
-    // Simple menu - draw colored rectangles to represent menu items
+    // Set up 2D orthogonal projection for text rendering
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+    glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1); // Standard orientation (bottom-left origin)
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
+    
+    glDisable(GL_DEPTH_TEST);
 
-    // Draw menu background
-    glColor3f(0.2f, 0.2f, 0.2f);
+    // Draw full-screen gradient background to replace gray blob
     glBegin(GL_QUADS);
-    glVertex2f(200, 150);
-    glVertex2f(600, 150);
-    glVertex2f(600, 450);
-    glVertex2f(200, 450);
+    glColor3f(0.05f, 0.05f, 0.15f); glVertex2f(0, 0);
+    glColor3f(0.1f, 0.1f, 0.25f); glVertex2f(WINDOW_WIDTH, 0);
+    glColor3f(0.15f, 0.15f, 0.35f); glVertex2f(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glColor3f(0.1f, 0.1f, 0.25f); glVertex2f(0, WINDOW_HEIGHT);
     glEnd();
 
-    // Draw fighting style options as colored rectangles
+    // Draw main menu background (centered and larger)
+    glColor3f(0.05f, 0.05f, 0.2f);
+    glBegin(GL_QUADS);
+    glVertex2f(100, 80);
+    glVertex2f(700, 80);
+    glVertex2f(700, 520);
+    glVertex2f(100, 520);
+    glEnd();
+
+    // Draw border for menu
+    glColor3f(0.3f, 0.3f, 0.6f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(100, 80);
+    glVertex2f(700, 80);
+    glVertex2f(700, 520);
+    glVertex2f(100, 520);
+    glEnd();
+
+    // Draw title (larger and more centered)
+    glColor3f(1.0f, 1.0f, 1.0f);
+    draw_text("=== CHAOSFORGE ARENA ===", 150, 470, 2.5f);
+
+    // Draw subtitle
+    glColor3f(0.8f, 0.8f, 0.8f);
+    draw_text("Choose Your Fighting Style", 200, 430, 1.8f);
+
+    // Draw fighting style options with enhanced visuals
     for (int i = 0; i < 4; i++) {
+        float y = 380 - i * 70; // More spacing between options
+        
+        // Draw background rectangle for each option (larger)
         if (i == selected_style) {
-            glColor3f(1.0f, 1.0f, 0.0f); // Yellow for selected
+            // Animated glow effect for selected item
+            glColor3f(0.4f, 0.4f, 0.9f); // Brighter blue for selected
         } else {
-            switch (i) {
-                case 0: glColor3f(1.0f, 0.2f, 0.2f); break; // Brawler - Red
-                case 1: glColor3f(0.2f, 1.0f, 0.2f); break; // Striker - Green
-                case 2: glColor3f(0.2f, 0.2f, 1.0f); break; // Phantom - Blue
-                case 3: glColor3f(1.0f, 1.0f, 0.2f); break; // Titan - Yellow
-            }
+            glColor3f(0.15f, 0.15f, 0.25f); // Darker background for others
         }
-        float y = 380 - i * 60;
+        
         glBegin(GL_QUADS);
-        glVertex2f(250, y - 20);
-        glVertex2f(550, y - 20);
-        glVertex2f(550, y + 20);
-        glVertex2f(250, y + 20);
+        glVertex2f(130, y - 15);
+        glVertex2f(670, y - 15);
+        glVertex2f(670, y + 35);
+        glVertex2f(130, y + 35);
         glEnd();
+        
+        // Draw border for style option
+        if (i == selected_style) {
+            glColor3f(1.0f, 1.0f, 0.5f); // Yellow border for selected
+        } else {
+            glColor3f(0.3f, 0.3f, 0.4f); // Gray border for others
+        }
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(130, y - 15);
+        glVertex2f(670, y - 15);
+        glVertex2f(670, y + 35);
+        glVertex2f(130, y + 35);
+        glEnd();
+        
+        // Draw selection indicator
+        if (i == selected_style) {
+            glColor3f(1.0f, 1.0f, 0.0f); // Yellow arrow for selected
+            draw_text(">>", 140, y, 2.2f);
+        } else {
+            glColor3f(0.5f, 0.5f, 0.5f); // Dim for unselected
+            draw_text("  ", 140, y, 2.2f);
+        }
+        
+        // Set color based on fighting style (more vibrant)
+        switch (i) {
+            case 0: glColor3f(1.0f, 0.2f, 0.2f); break; // Brawler - Bright Red
+            case 1: glColor3f(0.2f, 1.0f, 0.2f); break; // Striker - Bright Green
+            case 2: glColor3f(0.2f, 0.4f, 1.0f); break; // Phantom - Bright Blue
+            case 3: glColor3f(1.0f, 0.9f, 0.1f); break; // Titan - Bright Yellow
+        }
+        
+        draw_text(fighting_styles[i], 200, y, 2.2f);
+        
+        // Add style descriptions
+        glColor3f(0.7f, 0.7f, 0.7f);
+        const char* descriptions[] = {
+            "Heavy & Powerful",
+            "Fast & Precise", 
+            "Agile & Ethereal",
+            "Mighty & Unstoppable"
+        };
+        draw_text(descriptions[i], 400, y, 1.4f);
     }
 
+    // Draw instructions (more prominent)
+    glColor3f(0.9f, 0.9f, 0.5f);
+    draw_text("Use UP/DOWN to select, ENTER to start", 150, 120, 1.6f);
+    
+    // Add additional help text
+    glColor3f(0.6f, 0.6f, 0.6f);
+    draw_text("ESC to exit", 320, 100, 1.2f);
+    
+    glEnable(GL_DEPTH_TEST);
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
 
-    // Print menu to console
+    // Also print to console for debugging
     static int last_selected = -1;
     if (selected_style != last_selected) {
         printf("\n=== CHAOSFORGE ARENA ===\n");
@@ -275,24 +427,22 @@ void draw_menu(void) {
 }
 
 void draw_base_plate(void) {
-    glColor3f(0.3f, 0.3f, 0.3f);
-    glBegin(GL_QUADS);
-    glVertex3f(-20, 0, -20);
-    glVertex3f(20, 0, -20);
-    glVertex3f(20, 0, 20);
-    glVertex3f(-20, 0, 20);
-    glEnd();
+    // Draw only grid lines, no solid base - minimal visual impact
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    // Grid lines
-    glColor3f(0.4f, 0.4f, 0.4f);
+    // Only draw very subtle grid lines for spatial reference
+    glColor4f(0.2f, 0.2f, 0.25f, 0.3f); // Very faint grid lines
     glBegin(GL_LINES);
-    for (int i = -20; i <= 20; i += 5) {
-        glVertex3f(i, 0.01f, -20);
-        glVertex3f(i, 0.01f, 20);
-        glVertex3f(-20, 0.01f, i);
-        glVertex3f(20, 0.01f, i);
+    for (int i = -15; i <= 15; i += 5) { // Smaller area, moderate density
+        if (i == 0) continue; // Skip center lines to avoid center concentration
+        glVertex3f(i, 0.01f, -15);
+        glVertex3f(i, 0.01f, 15);
+        glVertex3f(-15, 0.01f, i);
+        glVertex3f(15, 0.01f, i);
     }
     glEnd();
+    glDisable(GL_BLEND);
 }
 
 void draw_player(float x, float z, int style, int is_master, int health, int attack_anim, int respawn_anim, int lives) {
@@ -373,6 +523,18 @@ void draw_player(float x, float z, int style, int is_master, int health, int att
     glEnd();
 
     glPopMatrix();
+    
+    // Draw velocity indicator for main player (only if moving)
+    if (x == player_x && z == player_z && (player_vel_x != 0.0f || player_vel_z != 0.0f)) {
+        glPushMatrix();
+        glTranslatef(x, 0.1f, z);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glBegin(GL_LINES);
+        glVertex3f(0, 0, 0);
+        glVertex3f(player_vel_x * 10, 0, player_vel_z * 10);
+        glEnd();
+        glPopMatrix();
+    }
 }
 
 void copy_to_clipboard(const char* text) {
@@ -460,15 +622,16 @@ void render_frame(void) {
         glLoadIdentity();
         gluLookAt(0, 5, 10, 0, 0, 0, 0, 1, 0);
         
-        // Draw base plate in menu
-        draw_base_plate();
-        
-        // Draw menu overlay
+        // Draw menu overlay (removed base plate that was causing gray blob)
         draw_menu();
     } else if (training_phase && !passed_exam) {
         render_scene(NULL, 1, master_style, player_style_global);
+        // Draw HUD during training
+        draw_game_hud();
     } else {
         render_scene(&game_state, 0, 0, 0);
+        // Draw HUD during main game
+        draw_game_hud();
     }
 
     if (show_console) {
@@ -526,6 +689,65 @@ void update_game_logic(void) {
         update_particles();
         game_tick++;
     }
+}
+
+void draw_game_hud(void) {
+    // Set up 2D orthogonal projection for HUD
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    
+    glDisable(GL_DEPTH_TEST);
+    
+    // Draw semi-transparent background for HUD
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.0f, 0.0f, 0.0f, 0.5f);
+    glBegin(GL_QUADS);
+    glVertex2f(10, 480);
+    glVertex2f(300, 480);
+    glVertex2f(300, 590);
+    glVertex2f(10, 590);
+    glEnd();
+    
+    // Player info
+    glColor3f(1.0f, 1.0f, 1.0f);
+    draw_text("Player Status:", 20, 575, 1.2f);
+    
+    char pos_text[64];
+    snprintf(pos_text, sizeof(pos_text), "Position: %.1f, %.1f", player_x, player_z);
+    glColor3f(0.8f, 0.8f, 1.0f);
+    draw_text(pos_text, 20, 555, 1.0f);
+    
+    char vel_text[64];
+    snprintf(vel_text, sizeof(vel_text), "Velocity: %.2f, %.2f", player_vel_x, player_vel_z);
+    draw_text(vel_text, 20, 540, 1.0f);
+    
+    char style_text[64];
+    snprintf(style_text, sizeof(style_text), "Style: %s", fighting_styles[player_style_global]);
+    switch (player_style_global) {
+        case 0: glColor3f(1.0f, 0.3f, 0.3f); break; // Brawler - Red
+        case 1: glColor3f(0.3f, 1.0f, 0.3f); break; // Striker - Green
+        case 2: glColor3f(0.3f, 0.3f, 1.0f); break; // Phantom - Blue
+        case 3: glColor3f(1.0f, 1.0f, 0.3f); break; // Titan - Yellow
+    }
+    draw_text(style_text, 20, 525, 1.0f);
+    
+    // Controls help
+    glColor3f(0.7f, 0.7f, 0.7f);
+    draw_text("WASD: Move, Arrows: Camera", 20, 505, 0.8f);
+    draw_text("Mouse: Look, Wheel: Zoom", 20, 495, 0.8f);
+    
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
 }
 
 void update_player_movement(void) {
