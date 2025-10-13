@@ -98,10 +98,10 @@ impl FightingStyle {
     /// Get style color for visual representation
     pub fn color(self) -> Color {
         match self {
-            FightingStyle::Brawler => Color::RED,
-            FightingStyle::Striker => Color::BLUE, 
-            FightingStyle::Phantom => Color::PURPLE,
-            FightingStyle::Titan => Color::ORANGE,
+            FightingStyle::Brawler => Color::srgb(1.0, 0.0, 0.0), // Red
+            FightingStyle::Striker => Color::srgb(0.0, 0.0, 1.0), // Blue
+            FightingStyle::Phantom => Color::srgb(0.5, 0.0, 0.5), // Purple
+            FightingStyle::Titan => Color::srgb(1.0, 0.5, 0.0), // Orange
         }
     }
 

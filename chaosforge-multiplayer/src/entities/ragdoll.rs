@@ -95,7 +95,7 @@ impl RagdollBody {
 }
 
 /// Individual body parts of the ragdoll
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 pub enum BodyPart {
     Head,
     Torso,
@@ -150,7 +150,7 @@ pub struct RagdollJoint {
     pub erp: f32, // Error Reduction Parameter
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 pub enum JointType {
     Ball,   // Ball joint (shoulders, hips)
     Hinge,  // Hinge joint (elbows, knees)

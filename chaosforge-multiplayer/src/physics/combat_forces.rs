@@ -113,11 +113,11 @@ pub fn apply_combat_forces(
             if let Some(combo) = &combat_state.current_combo {
                 match combo.combo_type {
                     crate::entities::ComboType::BasicAttack => {
-                        let force = CombatForce::punch(transform.forward(), player.style);
+                        let force = CombatForce::punch(*transform.forward(), player.style);
                         // Apply force to physics body
                     },
                     crate::entities::ComboType::PowerStrike => {
-                        let force = CombatForce::kick(transform.forward(), player.style);
+                        let force = CombatForce::kick(*transform.forward(), player.style);
                         // Apply stronger force
                     },
                     crate::entities::ComboType::SpecialMove => {

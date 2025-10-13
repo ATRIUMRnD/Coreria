@@ -83,7 +83,7 @@ impl MatchState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
 pub enum MatchStatus {
     Waiting,
     Starting { countdown: f32 },
@@ -241,7 +241,8 @@ fn manage_player_respawns(
         for (entity, player, mut health, mut transform) in player_query.iter_mut() {
             // Check if player fell out of bounds
             if transform.translation.y < rules.arena_bounds.death_plane_y && health.is_alive {
-                health.take_damage(health.current, time.elapsed_seconds_f64());
+                let damage_amount = health.current;
+                health.take_damage(damage_amount, time.elapsed_seconds_f64());
                 info!("Player {} fell out of bounds", player.id);
             }
 

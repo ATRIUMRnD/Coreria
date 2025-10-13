@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 /// Input buffer for storing and validating player inputs
-#[derive(Component, Debug, Clone, Reflect, Serialize, Deserialize)]
-#[reflect(Component)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct InputBuffer {
     pub frames: VecDeque<InputFrame>,
     pub max_frames: usize,
@@ -34,7 +33,7 @@ impl InputBuffer {
     pub fn push_input(&mut self, actions: Vec<InputAction>) {
         let frame = InputFrame {
             frame_number: self.current_frame,
-            timestamp: std::time::Instant::now(),
+            timestamp_secs: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs_f64(),
             actions,
         };
 
@@ -76,11 +75,22 @@ impl InputBuffer {
 }
 
 /// Single frame of input data
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputFrame {
     pub frame_number: u64,
-    pub timestamp: std::time::Instant,
+    pub timestamp_secs: f64, // Unix timestamp for network serialization
     pub actions: Vec<InputAction>,
+}
+
+impl Default for InputFrame {
+    fn default() -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        Self {
+            frame_number: 0,
+            timestamp_secs: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs_f64(),
+            actions: Vec::new(),
+        }
+    }
 }
 
 /// Individual input actions

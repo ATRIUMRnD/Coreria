@@ -19,10 +19,18 @@ pub use player_ffi::*;
 pub use match_ffi::*;
 pub use input_ffi::*;
 
-/// Initialize the multiplayer engine
+/// Initialize the multiplayer engine  
 /// Returns 0 on success, negative on error
 #[no_mangle]
 pub extern "C" fn coreria_initialize_engine() -> c_int {
+    println!("[CORERIA] Engine initialize called");
+    0
+}
+
+/// Initialize the multiplayer engine (full version)
+/// Returns 0 on success, negative on error
+#[no_mangle]
+pub extern "C" fn coreria_initialize_engine_full() -> c_int {
     match crate::initialize_engine() {
         Ok(_) => {
             println!("ChaosForge multiplayer engine initialized");

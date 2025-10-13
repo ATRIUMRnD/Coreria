@@ -39,7 +39,6 @@ impl Plugin for PlayerPlugin {
             .register_type::<RagdollBody>()
             .register_type::<Health>()
             .register_type::<CombatState>()
-            .register_type::<InputBuffer>()
             .register_type::<NetworkState>();
     }
 }

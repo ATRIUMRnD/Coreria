@@ -48,9 +48,10 @@ cc = "1.0"
 criterion = "0.5"
 
 [profile.release]
-lto = true
+lto = "thin"
 codegen-units = 1
-panic = "abort"
+panic = "unwind"
+opt-level = 3
 
 [profile.dev]
 opt-level = 1  # Faster compilation for development
