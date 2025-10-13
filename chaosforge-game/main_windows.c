@@ -427,21 +427,42 @@ void draw_menu(void) {
 }
 
 void draw_base_plate(void) {
-    // Draw only grid lines, no solid base - minimal visual impact
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    // Only draw very subtle grid lines for spatial reference
-    glColor4f(0.2f, 0.2f, 0.25f, 0.3f); // Very faint grid lines
+
+    // Draw a subtle base surface to provide depth reference
+    glColor4f(0.1f, 0.1f, 0.15f, 0.4f); // Very subtle dark base
+    glBegin(GL_QUADS);
+    glVertex3f(-20, 0.0f, -20);
+    glVertex3f(20, 0.0f, -20);
+    glVertex3f(20, 0.0f, 20);
+    glVertex3f(-20, 0.0f, 20);
+    glEnd();
+
+    // Draw grid lines for spatial reference
+    glColor4f(0.25f, 0.25f, 0.3f, 0.6f); // More visible grid lines
     glBegin(GL_LINES);
-    for (int i = -15; i <= 15; i += 5) { // Smaller area, moderate density
-        if (i == 0) continue; // Skip center lines to avoid center concentration
-        glVertex3f(i, 0.01f, -15);
-        glVertex3f(i, 0.01f, 15);
-        glVertex3f(-15, 0.01f, i);
-        glVertex3f(15, 0.01f, i);
+    for (int i = -20; i <= 20; i += 5) {
+        // Vertical lines
+        glVertex3f(i, 0.01f, -20);
+        glVertex3f(i, 0.01f, 20);
+        // Horizontal lines
+        glVertex3f(-20, 0.01f, i);
+        glVertex3f(20, 0.01f, i);
     }
     glEnd();
+
+    // Draw center cross for reference
+    glColor4f(0.4f, 0.4f, 0.5f, 0.8f);
+    glBegin(GL_LINES);
+    // X-axis line
+    glVertex3f(-20, 0.02f, 0);
+    glVertex3f(20, 0.02f, 0);
+    // Z-axis line
+    glVertex3f(0, 0.02f, -20);
+    glVertex3f(0, 0.02f, 20);
+    glEnd();
+
     glDisable(GL_BLEND);
 }
 
@@ -614,15 +635,23 @@ void render_frame(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     if (in_menu) {
-        // Set up 3D perspective for menu
+        // Set up 3D perspective for menu with proper camera positioning
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         gluPerspective(60.0, (double)WINDOW_WIDTH/(double)WINDOW_HEIGHT, 0.1, 100.0);
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
-        gluLookAt(0, 5, 10, 0, 0, 0, 0, 1, 0);
-        
-        // Draw menu overlay (removed base plate that was causing gray blob)
+
+        // Use camera system for menu - position camera for good view of base plate
+        float menu_cam_x = cam_radius * cos(cam_angle);
+        float menu_cam_y = cam_height;
+        float menu_cam_z = cam_radius * sin(cam_angle);
+        gluLookAt(menu_cam_x, menu_cam_y, menu_cam_z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+
+        // Draw base plate to provide 3D context and eliminate gray blob
+        draw_base_plate();
+
+        // Draw menu overlay
         draw_menu();
     } else if (training_phase && !passed_exam) {
         render_scene(NULL, 1, master_style, player_style_global);
