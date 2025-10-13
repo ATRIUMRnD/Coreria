@@ -27,6 +27,8 @@
 // Window dimensions
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
+int window_width = WINDOW_WIDTH;
+int window_height = WINDOW_HEIGHT;
 
 // Particle system
 typedef struct {
@@ -116,6 +118,9 @@ void update_game_logic(void);
 void update_player_movement(void);
 void handle_mouse_input(int x, int y);
 void render_frame(void);
+void render_menu_orthographic(void);
+void render_game_perspective(void);
+void draw_menu_background_gradient(void);
 BOOL init_opengl(HWND hWnd);
 void cleanup_opengl(void);
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -150,7 +155,6 @@ void update_particles(void) {
         particles[i].vy -= 0.05f; // gravity
         particles[i].life--;
         if (particles[i].life <= 0) {
-            // Remove dead particle by swapping with last
             particles[i] = particles[particle_count-1];
             particle_count--;
             i--;
@@ -176,7 +180,6 @@ int add_log(const char* msg) {
         log_count++;
         return 1;
     } else {
-        // If full, shift logs up and add new
         for (int i = 1; i < MAX_LOG_LINES; ++i) {
             strncpy(game_logs[i-1], game_logs[i], LOG_LINE_LENGTH);
         }
@@ -187,7 +190,6 @@ int add_log(const char* msg) {
 }
 
 void render_logs(void) {
-    // Console output for now
     if (show_console) {
         static int last_log_count = 0;
         if (log_count != last_log_count) {
@@ -212,11 +214,8 @@ void glut_sphere_approx(float radius, int subdivisions) {
     glEnd();
 }
 
-// Simple 8x8 bitmap font data for basic characters
 static unsigned char font_data[256][8] = {
-    // Space (32)
     [' '] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-    // A (65)
     ['A'] = {0x18, 0x24, 0x42, 0x42, 0x7E, 0x42, 0x42, 0x00},
     ['B'] = {0x7C, 0x42, 0x42, 0x7C, 0x42, 0x42, 0x7C, 0x00},
     ['C'] = {0x3C, 0x42, 0x40, 0x40, 0x40, 0x42, 0x3C, 0x00},
@@ -280,7 +279,7 @@ void draw_text(const char* text, float x, float y, float size) {
     
     for (int i = 0; text[i] != '\0'; i++) {
         draw_bitmap_char(text[i], current_x, y, size);
-        current_x += 8 * size + size; // 8 pixels wide + spacing
+        current_x += 8 * size + size;
     }
 }
 
@@ -288,15 +287,15 @@ void draw_background(void) {
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
+    gluOrtho2D(0, window_width, 0, window_height);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
     glBegin(GL_QUADS);
     glColor3f(0.1f, 0.1f, 0.3f); glVertex2i(0, 0);
-    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(WINDOW_WIDTH, 0);
-    glColor3f(0.3f, 0.3f, 0.7f); glVertex2i(WINDOW_WIDTH, WINDOW_HEIGHT);
-    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(0, WINDOW_HEIGHT);
+    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(window_width, 0);
+    glColor3f(0.3f, 0.3f, 0.7f); glVertex2i(window_width, window_height);
+    glColor3f(0.2f, 0.2f, 0.5f); glVertex2i(0, window_height);
     glEnd();
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
@@ -305,21 +304,10 @@ void draw_background(void) {
 }
 
 void draw_menu(void) {
-    // Set up 2D orthogonal projection for text rendering
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1); // Standard orientation (bottom-left origin)
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    
-    glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Draw semi-transparent main menu background (centered) - no full-screen overlay
-    glColor4f(0.05f, 0.05f, 0.2f, 0.85f); // Semi-transparent background
+    glColor4f(0.05f, 0.05f, 0.2f, 0.85f);
     glBegin(GL_QUADS);
     glVertex2f(100, 80);
     glVertex2f(700, 80);
@@ -327,7 +315,6 @@ void draw_menu(void) {
     glVertex2f(100, 520);
     glEnd();
 
-    // Draw border for menu
     glColor3f(0.3f, 0.3f, 0.6f);
     glBegin(GL_LINE_LOOP);
     glVertex2f(100, 80);
@@ -336,24 +323,19 @@ void draw_menu(void) {
     glVertex2f(100, 520);
     glEnd();
 
-    // Draw title (larger and more centered)
     glColor3f(1.0f, 1.0f, 1.0f);
     draw_text("=== CHAOSFORGE ARENA ===", 150, 470, 2.5f);
 
-    // Draw subtitle
     glColor3f(0.8f, 0.8f, 0.8f);
     draw_text("Choose Your Fighting Style", 200, 430, 1.8f);
 
-    // Draw fighting style options with enhanced visuals
     for (int i = 0; i < 4; i++) {
-        float y = 380 - i * 70; // More spacing between options
+        float y = 380 - i * 70;
         
-        // Draw background rectangle for each option (larger)
         if (i == selected_style) {
-            // Animated glow effect for selected item
-            glColor3f(0.4f, 0.4f, 0.9f); // Brighter blue for selected
+            glColor3f(0.4f, 0.4f, 0.9f);
         } else {
-            glColor3f(0.15f, 0.15f, 0.25f); // Darker background for others
+            glColor3f(0.15f, 0.15f, 0.25f);
         }
         
         glBegin(GL_QUADS);
@@ -363,11 +345,10 @@ void draw_menu(void) {
         glVertex2f(130, y + 35);
         glEnd();
         
-        // Draw border for style option
         if (i == selected_style) {
-            glColor3f(1.0f, 1.0f, 0.5f); // Yellow border for selected
+            glColor3f(1.0f, 1.0f, 0.5f);
         } else {
-            glColor3f(0.3f, 0.3f, 0.4f); // Gray border for others
+            glColor3f(0.3f, 0.3f, 0.4f);
         }
         glBegin(GL_LINE_LOOP);
         glVertex2f(130, y - 15);
@@ -376,26 +357,23 @@ void draw_menu(void) {
         glVertex2f(130, y + 35);
         glEnd();
         
-        // Draw selection indicator
         if (i == selected_style) {
-            glColor3f(1.0f, 1.0f, 0.0f); // Yellow arrow for selected
+            glColor3f(1.0f, 1.0f, 0.0f);
             draw_text(">>", 140, y, 2.2f);
         } else {
-            glColor3f(0.5f, 0.5f, 0.5f); // Dim for unselected
+            glColor3f(0.5f, 0.5f, 0.5f);
             draw_text("  ", 140, y, 2.2f);
         }
         
-        // Set color based on fighting style (more vibrant)
         switch (i) {
-            case 0: glColor3f(1.0f, 0.2f, 0.2f); break; // Brawler - Bright Red
-            case 1: glColor3f(0.2f, 1.0f, 0.2f); break; // Striker - Bright Green
-            case 2: glColor3f(0.2f, 0.4f, 1.0f); break; // Phantom - Bright Blue
-            case 3: glColor3f(1.0f, 0.9f, 0.1f); break; // Titan - Bright Yellow
+            case 0: glColor3f(1.0f, 0.2f, 0.2f); break;
+            case 1: glColor3f(0.2f, 1.0f, 0.2f); break;
+            case 2: glColor3f(0.2f, 0.4f, 1.0f); break;
+            case 3: glColor3f(1.0f, 0.9f, 0.1f); break;
         }
         
         draw_text(fighting_styles[i], 200, y, 2.2f);
         
-        // Add style descriptions
         glColor3f(0.7f, 0.7f, 0.7f);
         const char* descriptions[] = {
             "Heavy & Powerful",
@@ -406,22 +384,14 @@ void draw_menu(void) {
         draw_text(descriptions[i], 400, y, 1.4f);
     }
 
-    // Draw instructions (more prominent)
     glColor3f(0.9f, 0.9f, 0.5f);
     draw_text("Use UP/DOWN to select, ENTER to start", 150, 120, 1.6f);
     
-    // Add additional help text
     glColor3f(0.6f, 0.6f, 0.6f);
     draw_text("ESC to exit", 320, 100, 1.2f);
     
     glDisable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glPopMatrix();
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
 
-    // Also print to console for debugging
     static int last_selected = -1;
     if (selected_style != last_selected) {
         printf("\n=== CHAOSFORGE ARENA ===\n");
@@ -437,8 +407,7 @@ void draw_base_plate(void) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Draw a subtle base surface to provide depth reference
-    glColor4f(0.1f, 0.1f, 0.15f, 0.4f); // Very subtle dark base
+    glColor4f(0.1f, 0.1f, 0.15f, 0.4f);
     glBegin(GL_QUADS);
     glVertex3f(-20, 0.0f, -20);
     glVertex3f(20, 0.0f, -20);
@@ -446,26 +415,20 @@ void draw_base_plate(void) {
     glVertex3f(-20, 0.0f, 20);
     glEnd();
 
-    // Draw grid lines for spatial reference
-    glColor4f(0.25f, 0.25f, 0.3f, 0.6f); // More visible grid lines
+    glColor4f(0.25f, 0.25f, 0.3f, 0.6f);
     glBegin(GL_LINES);
     for (int i = -20; i <= 20; i += 5) {
-        // Vertical lines
         glVertex3f(i, 0.01f, -20);
         glVertex3f(i, 0.01f, 20);
-        // Horizontal lines
         glVertex3f(-20, 0.01f, i);
         glVertex3f(20, 0.01f, i);
     }
     glEnd();
 
-    // Draw center cross for reference
     glColor4f(0.4f, 0.4f, 0.5f, 0.8f);
     glBegin(GL_LINES);
-    // X-axis line
     glVertex3f(-20, 0.02f, 0);
     glVertex3f(20, 0.02f, 0);
-    // Z-axis line
     glVertex3f(0, 0.02f, -20);
     glVertex3f(0, 0.02f, 20);
     glEnd();
@@ -479,59 +442,49 @@ void draw_player(float x, float z, int style, int is_master, int health, int att
     glPushMatrix();
     glTranslatef(x, 1.0f, z);
 
-    // Color based on style
     switch (style) {
-        case 0: glColor3f(1.0f, 0.2f, 0.2f); break; // Brawler - Red
-        case 1: glColor3f(0.2f, 1.0f, 0.2f); break; // Striker - Green
-        case 2: glColor3f(0.2f, 0.2f, 1.0f); break; // Phantom - Blue
-        case 3: glColor3f(1.0f, 1.0f, 0.2f); break; // Titan - Yellow
+        case 0: glColor3f(1.0f, 0.2f, 0.2f); break;
+        case 1: glColor3f(0.2f, 1.0f, 0.2f); break;
+        case 2: glColor3f(0.2f, 0.2f, 1.0f); break;
+        case 3: glColor3f(1.0f, 1.0f, 0.2f); break;
         default: glColor3f(0.8f, 0.8f, 0.8f); break;
     }
 
-    // Flash effects
     if (attack_anim > 0) {
-        glColor3f(1.0f, 0.5f, 0.5f); // Red flash for attack
+        glColor3f(1.0f, 0.5f, 0.5f);
     }
     if (respawn_anim > 0) {
-        glColor3f(1.0f, 1.0f, 0.5f); // Yellow flash for respawn
+        glColor3f(1.0f, 1.0f, 0.5f);
     }
 
-    // Draw simple cube for player
     float size = 0.75f;
     glBegin(GL_QUADS);
-    // Front face
     glVertex3f(-size, -size, size);
     glVertex3f(size, -size, size);
     glVertex3f(size, size, size);
     glVertex3f(-size, size, size);
-    // Back face
     glVertex3f(-size, -size, -size);
     glVertex3f(-size, size, -size);
     glVertex3f(size, size, -size);
     glVertex3f(size, -size, -size);
-    // Top face
     glVertex3f(-size, size, -size);
     glVertex3f(-size, size, size);
     glVertex3f(size, size, size);
     glVertex3f(size, size, -size);
-    // Bottom face
     glVertex3f(-size, -size, -size);
     glVertex3f(size, -size, -size);
     glVertex3f(size, -size, size);
     glVertex3f(-size, -size, size);
-    // Right face
     glVertex3f(size, -size, -size);
     glVertex3f(size, size, -size);
     glVertex3f(size, size, size);
     glVertex3f(size, -size, size);
-    // Left face
     glVertex3f(-size, -size, -size);
     glVertex3f(-size, -size, size);
     glVertex3f(-size, size, size);
     glVertex3f(-size, size, -size);
     glEnd();
 
-    // Health bar above player
     glTranslatef(0, 2.0f, 0);
     glColor3f(1.0f, 0.0f, 0.0f);
     glBegin(GL_QUADS);
@@ -552,7 +505,6 @@ void draw_player(float x, float z, int style, int is_master, int health, int att
 
     glPopMatrix();
     
-    // Draw velocity indicator for main player (only if moving)
     if (x == player_x && z == player_z && (player_vel_x != 0.0f || player_vel_z != 0.0f)) {
         glPushMatrix();
         glTranslatef(x, 0.1f, z);
@@ -580,35 +532,30 @@ void copy_to_clipboard(const char* text) {
 }
 
 void draw_dynamic_objects(void) {
+    if (in_menu) return;
     for (int i = 0; i < dynamic_object_count; ++i) {
         draw_player(dynamic_objects[i].x, dynamic_objects[i].z, dynamic_objects[i].style, 0, 100, 0, 0, 2);
     }
 }
 
 void render_scene(GameState* state, int training_phase, int master_style, int player_style) {
-    // Draw particles
     draw_particles();
-    // Camera setup
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(60.0, (double)WINDOW_WIDTH/(double)WINDOW_HEIGHT, 0.1, 100.0);
+    gluPerspective(60.0, (double)window_width/(double)window_height, 0.1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
-    // Set camera target based on game state
     float cam_target_x = 0.0f, cam_target_z = 0.0f;
     if (training_phase && !in_menu) {
-        // In training mode, center on player position
         cam_target_x = player_x;
         cam_target_z = player_z;
     } else if (cam_follow_player && state) {
-        // Follow player 0 in main game
         float angle = 0 * (2 * M_PI / MAX_PLAYERS);
         cam_target_x = 7.0f * cos(angle);
         cam_target_z = 7.0f * sin(angle);
     }
     
-    // Apply camera panning
     cam_target_x += cam_pan_x;
     cam_target_z += cam_pan_z;
     
@@ -616,11 +563,10 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
     float cam_y = cam_height;
     float cam_z = cam_target_z + cam_radius * sin(cam_angle);
     gluLookAt(cam_x, cam_y, cam_z, cam_target_x, 0.0f, cam_target_z, 0.0f, 1.0f, 0.0f);
-    // Draw base plate
     draw_base_plate();
     if (training_phase) {
-        draw_player(player_x, player_z, player_style, 0, 100, 0, 0, 2); // player
-        draw_player(0.0f, 5.0f, master_style, 1, 100, 0, 0, 2);  // master
+        draw_player(player_x, player_z, player_style, 0, 100, 0, 0, 2);
+        draw_player(0.0f, 5.0f, master_style, 1, 100, 0, 0, 2);
         draw_dynamic_objects();
     } else {
         for (int i = 0; i < MAX_PLAYERS; ++i) {
@@ -638,40 +584,60 @@ void render_scene(GameState* state, int training_phase, int master_style, int pl
     }
 }
 
+void draw_menu_background_gradient() {
+    glDisable(GL_DEPTH_TEST);
+    glBegin(GL_QUADS);
+    glColor4f(0.1f, 0.2f, 0.4f, 1.0f);
+    glVertex2f(0, window_height);
+    glVertex2f(window_width, window_height);
+    glColor4f(0.05f, 0.1f, 0.3f, 1.0f);
+    glVertex2f(window_width, 0);
+    glVertex2f(0, 0);
+    glEnd();
+    glEnable(GL_DEPTH_TEST);
+}
+
+void render_menu_orthographic() {
+    glDisable(GL_DEPTH_TEST);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, window_width, 0, window_height, -1, 1);
+    
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    
+    draw_menu_background_gradient();
+    draw_menu();
+    
+    if (menu_graphics) {
+        draw_svg_graphics(menu_graphics, 0, 0, 1.0f);
+    }
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glEnable(GL_DEPTH_TEST);
+}
+
+void render_game_perspective() {
+    glEnable(GL_DEPTH_TEST);
+    if (training_phase && !passed_exam) {
+        render_scene(NULL, 1, master_style, player_style_global);
+    } else {
+        render_scene(&game_state, 0, 0, 0);
+    }
+}
+
 void render_frame(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     if (in_menu) {
-        // Set up 3D perspective for menu with proper camera positioning
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        gluPerspective(60.0, (double)WINDOW_WIDTH/(double)WINDOW_HEIGHT, 0.1, 100.0);
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-
-        // Use camera system for menu - position camera for good view of base plate
-        float menu_cam_x = cam_radius * cos(cam_angle);
-        float menu_cam_y = cam_height;
-        float menu_cam_z = cam_radius * sin(cam_angle);
-        gluLookAt(menu_cam_x, menu_cam_y, menu_cam_z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-
-        // Draw base plate to provide 3D context and eliminate gray blob
-        draw_base_plate();
-
-        // Draw menu overlay
-        draw_menu();
-
-        // Draw SVG graphics overlay for menu decorations
-        if (menu_graphics) {
-            draw_svg_graphics(menu_graphics, 0, 0, 1.0f);
-        }
-    } else if (training_phase && !passed_exam) {
-        render_scene(NULL, 1, master_style, player_style_global);
-        // Draw HUD during training
-        draw_game_hud();
+        render_menu_orthographic();
     } else {
-        render_scene(&game_state, 0, 0, 0);
-        // Draw HUD during main game
+        render_game_perspective();
         draw_game_hud();
     }
 
@@ -684,29 +650,24 @@ void update_game_logic(void) {
     if (!running) return;
 
     if (in_menu) {
-        // Just redraw menu
+        // No game logic in menu
     } else if (training_phase && !passed_exam) {
         training_ticks++;
-        printf("[DEBUG] Training phase: tick %d, player at (%.1f, %.1f)\n", training_ticks, player_x, player_z);
         if (training_ticks == 120) {
             add_log("[Training] You land a decisive blow! Master defeated. Ticket granted.");
             passed_exam = 1;
             training_phase = 0;
 
-            // Initialize main game
             init_game_state(&game_state);
             for (int i = 0; i < MAX_PLAYERS; ++i) {
                 game_state.players[i].style = player_style_global;
             }
             spawn_players(&game_state);
             add_log("[Time: 0.016s] Game loop started (60 FPS)");
-            printf("[DEBUG] Main game started\n");
         }
     } else {
-        // Main game loop
         update_game(&game_state, game_tick);
 
-        // Update animations and particles
         for (int i = 0; i < MAX_PLAYERS; ++i) {
             if (game_state.attack_anim[i] > 0) {
                 game_state.attack_anim[i]--;
@@ -733,7 +694,6 @@ void update_game_logic(void) {
 }
 
 void draw_game_hud(void) {
-    // Set up 2D orthogonal projection for HUD
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -744,7 +704,6 @@ void draw_game_hud(void) {
     
     glDisable(GL_DEPTH_TEST);
     
-    // Draw semi-transparent background for HUD
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glColor4f(0.0f, 0.0f, 0.0f, 0.5f);
@@ -755,7 +714,6 @@ void draw_game_hud(void) {
     glVertex2f(10, 590);
     glEnd();
     
-    // Player info
     glColor3f(1.0f, 1.0f, 1.0f);
     draw_text("Player Status:", 20, 575, 1.2f);
     
@@ -771,14 +729,13 @@ void draw_game_hud(void) {
     char style_text[64];
     snprintf(style_text, sizeof(style_text), "Style: %s", fighting_styles[player_style_global]);
     switch (player_style_global) {
-        case 0: glColor3f(1.0f, 0.3f, 0.3f); break; // Brawler - Red
-        case 1: glColor3f(0.3f, 1.0f, 0.3f); break; // Striker - Green
-        case 2: glColor3f(0.3f, 0.3f, 1.0f); break; // Phantom - Blue
-        case 3: glColor3f(1.0f, 1.0f, 0.3f); break; // Titan - Yellow
+        case 0: glColor3f(1.0f, 0.3f, 0.3f); break;
+        case 1: glColor3f(0.3f, 1.0f, 0.3f); break;
+        case 2: glColor3f(0.3f, 0.3f, 1.0f); break;
+        case 3: glColor3f(1.0f, 1.0f, 0.3f); break;
     }
     draw_text(style_text, 20, 525, 1.0f);
     
-    // Controls help
     glColor3f(0.7f, 0.7f, 0.7f);
     draw_text("WASD: Move, Arrows: Camera", 20, 505, 0.8f);
     draw_text("Mouse: Look, Wheel: Zoom", 20, 495, 0.8f);
@@ -790,7 +747,6 @@ void draw_game_hud(void) {
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
 
-    // Draw SVG HUD graphics overlay
     if (hud_graphics) {
         draw_svg_graphics(hud_graphics, 0, 0, 1.0f);
     }
@@ -799,7 +755,6 @@ void draw_game_hud(void) {
 void update_player_movement(void) {
     if (!player_can_move || in_menu) return;
     
-    // Keyboard movement (WASD for player, Arrow keys for camera)
     float move_x = 0.0f, move_z = 0.0f;
     
     if (keys['W']) move_z -= player_speed;
@@ -807,27 +762,22 @@ void update_player_movement(void) {
     if (keys['A']) move_x -= player_speed;
     if (keys['D']) move_x += player_speed;
     
-    // Apply movement with momentum
     player_vel_x = player_vel_x * player_friction + move_x;
     player_vel_z = player_vel_z * player_friction + move_z;
     
-    // Update player position
     player_x += player_vel_x;
     player_z += player_vel_z;
     
-    // Keep player within bounds (-15 to 15)
     if (player_x < -15.0f) { player_x = -15.0f; player_vel_x = 0.0f; }
     if (player_x > 15.0f) { player_x = 15.0f; player_vel_x = 0.0f; }
     if (player_z < -15.0f) { player_z = -15.0f; player_vel_z = 0.0f; }
     if (player_z > 15.0f) { player_z = 15.0f; player_vel_z = 0.0f; }
     
-    // Camera movement with arrow keys
     if (keys[VK_LEFT]) cam_angle -= 0.03f;
     if (keys[VK_RIGHT]) cam_angle += 0.03f;
     if (keys[VK_UP]) cam_height += 0.1f;
     if (keys[VK_DOWN]) cam_height -= 0.1f;
     
-    // Limit camera height
     if (cam_height < 2.0f) cam_height = 2.0f;
     if (cam_height > 25.0f) cam_height = 25.0f;
 }
@@ -842,7 +792,6 @@ void handle_mouse_input(int x, int y) {
     int dx = x - mouse_last_x;
     int dy = y - mouse_last_y;
     
-    // Right mouse button: camera rotation
     if (mouse_right_down) {
         cam_angle += dx * 0.01f;
         cam_height -= dy * 0.1f;
@@ -850,7 +799,6 @@ void handle_mouse_input(int x, int y) {
         if (cam_height > 25.0f) cam_height = 25.0f;
     }
     
-    // Left mouse button: camera pan
     if (mouse_left_down) {
         cam_pan_x += dx * 0.05f;
         cam_pan_z += dy * 0.05f;
@@ -860,9 +808,7 @@ void handle_mouse_input(int x, int y) {
     mouse_last_y = y;
 }
 
-// SVG Graphics Implementation
 void init_svg_graphics(void) {
-    // Initialize SVG graphics for menu and HUD
     menu_graphics = create_menu_graphics();
     hud_graphics = create_hud_graphics();
     printf("[DEBUG] SVG graphics initialized\n");
@@ -881,15 +827,12 @@ void cleanup_svg_graphics(void) {
 }
 
 NSVGimage* create_menu_graphics(void) {
-    // Create procedural SVG graphics for menu decorations
     NSVGimage* image = nsvgCreateImage(800, 600);
     if (!image) return NULL;
 
-    // Add decorative elements around the menu
-    NSVGshape* border = nsvgCreateRect(90, 70, 620, 460, 0x40404080); // Semi-transparent border
+    NSVGshape* border = nsvgCreateRect(90, 70, 620, 460, 0x40404080);
     nsvgAddShape(image, border);
 
-    // Add corner decorations
     NSVGshape* corner1 = nsvgCreateCircle(100, 80, 10, 0x6060A0FF);
     NSVGshape* corner2 = nsvgCreateCircle(700, 80, 10, 0x6060A0FF);
     NSVGshape* corner3 = nsvgCreateCircle(100, 520, 10, 0x6060A0FF);
@@ -904,16 +847,13 @@ NSVGimage* create_menu_graphics(void) {
 }
 
 NSVGimage* create_hud_graphics(void) {
-    // Create procedural SVG graphics for HUD elements
     NSVGimage* image = nsvgCreateImage(800, 600);
     if (!image) return NULL;
 
-    // Add HUD frame
     NSVGshape* hud_frame = nsvgCreateRect(5, 475, 310, 120, 0x20202040);
     nsvgAddShape(image, hud_frame);
 
-    // Add status indicators
-    NSVGshape* status_dot = nsvgCreateCircle(25, 580, 5, 0x00FF00FF); // Green status dot
+    NSVGshape* status_dot = nsvgCreateCircle(25, 580, 5, 0x00FF00FF);
     nsvgAddShape(image, status_dot);
 
     return image;
@@ -922,7 +862,6 @@ NSVGimage* create_hud_graphics(void) {
 void draw_svg_graphics(NSVGimage* image, float x, float y, float scale) {
     if (!image) return;
 
-    // Set up 2D rendering for SVG overlay
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -935,11 +874,9 @@ void draw_svg_graphics(NSVGimage* image, float x, float y, float scale) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Render SVG shapes
     NSVGshape* shape = image->shapes;
     while (shape) {
         if (shape->fill != 0) {
-            // Extract RGBA components
             float r = ((shape->fill >> 24) & 0xFF) / 255.0f;
             float g = ((shape->fill >> 16) & 0xFF) / 255.0f;
             float b = ((shape->fill >> 8) & 0xFF) / 255.0f;
@@ -947,7 +884,6 @@ void draw_svg_graphics(NSVGimage* image, float x, float y, float scale) {
 
             glColor4f(r, g, b, a);
 
-            // Simple rectangle rendering (basic implementation)
             if (shape->npts >= 4) {
                 glBegin(GL_QUADS);
                 for (int i = 0; i < 4 && i < shape->npts; i++) {
@@ -967,7 +903,6 @@ void draw_svg_graphics(NSVGimage* image, float x, float y, float scale) {
     glMatrixMode(GL_MODELVIEW);
 }
 
-// Basic NanoSVG stub implementations
 NSVGimage* nsvgCreateImage(float width, float height) {
     NSVGimage* image = (NSVGimage*)malloc(sizeof(NSVGimage));
     if (!image) return NULL;
@@ -981,17 +916,16 @@ NSVGshape* nsvgCreateRect(float x, float y, float w, float h, unsigned int fill)
     NSVGshape* shape = (NSVGshape*)malloc(sizeof(NSVGshape));
     if (!shape) return NULL;
 
-    shape->pts = (float*)malloc(8 * sizeof(float)); // 4 points, 2 coords each
+    shape->pts = (float*)malloc(8 * sizeof(float));
     if (!shape->pts) {
         free(shape);
         return NULL;
     }
 
-    // Rectangle corners
-    shape->pts[0] = x; shape->pts[1] = y;         // Bottom-left
-    shape->pts[2] = x + w; shape->pts[3] = y;     // Bottom-right
-    shape->pts[4] = x + w; shape->pts[5] = y + h; // Top-right
-    shape->pts[6] = x; shape->pts[7] = y + h;     // Top-left
+    shape->pts[0] = x; shape->pts[1] = y;
+    shape->pts[2] = x + w; shape->pts[3] = y;
+    shape->pts[4] = x + w; shape->pts[5] = y + h;
+    shape->pts[6] = x; shape->pts[7] = y + h;
 
     shape->npts = 4;
     shape->fill = fill;
@@ -1006,7 +940,6 @@ NSVGshape* nsvgCreateCircle(float cx, float cy, float r, unsigned int fill) {
     NSVGshape* shape = (NSVGshape*)malloc(sizeof(NSVGshape));
     if (!shape) return NULL;
 
-    // Approximate circle with octagon
     int segments = 8;
     shape->pts = (float*)malloc(segments * 2 * sizeof(float));
     if (!shape->pts) {
@@ -1033,7 +966,7 @@ NSVGshape* nsvgCreateLine(float x1, float y1, float x2, float y2, unsigned int s
     NSVGshape* shape = (NSVGshape*)malloc(sizeof(NSVGshape));
     if (!shape) return NULL;
 
-    shape->pts = (float*)malloc(4 * sizeof(float)); // 2 points, 2 coords each
+    shape->pts = (float*)malloc(4 * sizeof(float));
     if (!shape->pts) {
         free(shape);
         return NULL;
@@ -1074,34 +1007,19 @@ void nsvgDelete(NSVGimage* image) {
 
 NSVGimage* nsvgParseFromFile(const char* filename, const char* units, float dpi) {
     (void)filename; (void)units; (void)dpi;
-    // Stub implementation - would load from file in full version
     return NULL;
 }
 
 NSVGimage* nsvgParse(char* input, const char* units, float dpi) {
     (void)input; (void)units; (void)dpi;
-    // Stub implementation - would parse SVG string in full version
     return NULL;
 }
 
 BOOL init_opengl(HWND hWnd) {
     PIXELFORMATDESCRIPTOR pfd = {
-        sizeof(PIXELFORMATDESCRIPTOR),
-        1,
-        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-        PFD_TYPE_RGBA,
-        32,
-        0, 0, 0, 0, 0, 0,
-        0,
-        0,
-        0,
-        0, 0, 0, 0,
-        24,
-        8,
-        0,
-        PFD_MAIN_PLANE,
-        0,
-        0, 0, 0
+        sizeof(PIXELFORMATDESCRIPTOR), 1,
+        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER, PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 8, 0,
+        PFD_MAIN_PLANE, 0, 0, 0, 0
     };
 
     g_hDC = GetDC(hWnd);
@@ -1115,23 +1033,18 @@ BOOL init_opengl(HWND hWnd) {
 
     if (!wglMakeCurrent(g_hDC, g_hRC)) return FALSE;
 
-    // Initialize OpenGL settings
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
 
-    printf("[DEBUG] OpenGL initialized successfully.\n");
-
-    // Initialize SVG graphics system
     init_svg_graphics();
 
     return TRUE;
 }
 
 void cleanup_opengl(void) {
-    // Cleanup SVG graphics first
     cleanup_svg_graphics();
 
     if (g_hRC) {
@@ -1156,16 +1069,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         case WM_KEYDOWN:
             keys[wParam] = TRUE;
             
-            // Handle one-time key presses
             if (!last_keys[wParam]) {
                 switch (wParam) {
                     case VK_RETURN:
                         if (in_menu) {
                             player_style_global = selected_style;
                             in_menu = 0;
-                            player_can_move = 1;  // Enable player movement
-                            printf("[DEBUG] Selected %s, starting game...\n", fighting_styles[selected_style]);
-                            printf("[DEBUG] Movement controls: WASD to move, Arrow keys for camera, Mouse for camera control\n");
+                            player_can_move = 1;
                         }
                         break;
                     case 'C':
@@ -1185,18 +1095,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                         break;
                     case VK_F12:
                         show_console = !show_console;
-                        printf("[DEBUG] Console toggled: %s\n", show_console ? "ON" : "OFF");
                         break;
                     case VK_UP:
                         if (in_menu) {
                             selected_style = (selected_style + 3) % 4;
-                            printf("[DEBUG] Menu selection: %s\n", fighting_styles[selected_style]);
                         }
                         break;
                     case VK_DOWN:
                         if (in_menu) {
                             selected_style = (selected_style + 1) % 4;
-                            printf("[DEBUG] Menu selection: %s\n", fighting_styles[selected_style]);
                         }
                         break;
                     case VK_ESCAPE:
@@ -1240,18 +1147,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         case WM_MOUSEWHEEL:
             {
                 int delta = GET_WHEEL_DELTA_WPARAM(wParam);
-                cam_radius -= delta / 120.0f;  // 120 is standard wheel delta
+                cam_radius -= delta / 120.0f;
                 if (cam_radius < 5.0f) cam_radius = 5.0f;
                 if (cam_radius > 50.0f) cam_radius = 50.0f;
-                printf("[DEBUG] Camera zoom: %.1f\n", cam_radius);
             }
             break;
             
         case WM_SIZE:
-            glViewport(0, 0, LOWORD(lParam), HIWORD(lParam));
+            window_width = LOWORD(lParam);
+            window_height = HIWORD(lParam);
+            glViewport(0, 0, window_width, window_height);
             break;
             
-        default:
+default:
             return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
@@ -1261,21 +1169,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     (void)hPrevInstance;
     (void)lpCmdLine;
     
-    printf("[DEBUG] Starting ChaosForge Arena...\n");
-
-    // Register window class
     WNDCLASSEX wcex = {
-        sizeof(WNDCLASSEX),
-        CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
-        WndProc,
-        0, 0,
-        hInstance,
-        NULL,
-        LoadCursor(NULL, IDC_ARROW),
-        NULL,
-        NULL,
-        "ChaosForgeArena",
-        NULL
+        sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW | CS_OWNDC, WndProc, 0, 0,
+        hInstance, NULL, LoadCursor(NULL, IDC_ARROW), NULL, NULL, "ChaosForgeArena", NULL
     };
     
     if (!RegisterClassEx(&wcex)) {
@@ -1283,16 +1179,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return -1;
     }
 
-    // Create window
     g_hWnd = CreateWindow(
-        "ChaosForgeArena",
-        "ChaosForge Arena",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT,
-        WINDOW_WIDTH, WINDOW_HEIGHT,
-        NULL, NULL,
-        hInstance,
-        NULL
+        "ChaosForgeArena", "ChaosForge Arena", WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT,
+        NULL, NULL, hInstance, NULL
     );
 
     if (!g_hWnd) {
@@ -1300,23 +1190,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return -1;
     }
 
-    // Initialize OpenGL
     if (!init_opengl(g_hWnd)) {
         MessageBox(NULL, "Failed to initialize OpenGL", "Error", MB_OK);
         cleanup_opengl();
         return -1;
     }
 
-    // Show window
     ShowWindow(g_hWnd, nCmdShow);
     UpdateWindow(g_hWnd);
 
-    // Main loop
     MSG msg;
     DWORD lastTime = GetTickCount();
     
     while (running) {
-        // Handle messages
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 running = 0;
@@ -1326,22 +1212,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             DispatchMessage(&msg);
         }
 
-        // Update player movement and camera
         update_player_movement();
 
-        // Update and render at ~60 FPS
         DWORD currentTime = GetTickCount();
-        if (currentTime - lastTime >= 16) { // ~60 FPS
+        if (currentTime - lastTime >= 16) {
             update_game_logic();
             render_frame();
             SwapBuffers(g_hDC);
             lastTime = currentTime;
         }
         
-        Sleep(1); // Yield CPU
+        Sleep(1);
     }
 
-    // Cleanup
     cleanup_opengl();
     return 0;
 }
