@@ -1,12 +1,25 @@
 #!/usr/bin/env pwsh
 # ChaosForge Unified Build Script for Windows
 
+[CmdletBinding()]
+param(
+    [ValidateSet('Debug', 'Release')]
+    [string]$Configuration = 'Release'
+)
+
 Write-Host "Building ChaosForge Unified Arena..." -ForegroundColor Green
 Write-Host "Integrating: Physics + Game + Movement + Combat engines" -ForegroundColor Yellow
+Write-Host "Configuration: $Configuration" -ForegroundColor Cyan
 
 # Clean previous build
 if (Test-Path "chaosforge_unified.exe") { Remove-Item "chaosforge_unified.exe" }
 Get-ChildItem "*.o" | Remove-Item -ErrorAction SilentlyContinue
+
+# Prerequisite check
+if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
+    Write-Host "Error: gcc not found in PATH. Please install MinGW/MSYS2 and ensure it's in your environment variables." -ForegroundColor Red
+    exit 1
+}
 
 # Check if Rust multiplayer DLL exists
 $dllPath = "chaosforge_multiplayer.dll"
@@ -48,9 +61,16 @@ foreach ($source in $sources) {
         $object = $source -replace "\.c$", ".o"
         Write-Host "Compiling $source..." -ForegroundColor Yellow
         
+        $baseCompileArgs = @("-Wall", "-Wextra", "-std=c99", "-I.")
+        if ($Configuration -eq 'Debug') {
+            $configArgs = @("-g") # Add debug symbols
+        } else {
+            $configArgs = @("-O2") # Optimize for release
+        }
+
         $compileArgs = @(
-            "-Wall", "-Wextra", "-O2", "-std=c99",
-            "-I.",
+            $baseCompileArgs,
+            $configArgs,
             "-c", $source, "-o", $object
         )
         
