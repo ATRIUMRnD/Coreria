@@ -16,6 +16,7 @@
 #include "combat_system.h"
 #include "physics_manager.h"
 #include "game_state.h"
+#include "nanosvg.h"
 
 // Constants
 #define MAX_PARTICLES 64
@@ -90,6 +91,10 @@ int training_ticks = 0;
 // Key state tracking
 BOOL keys[256] = {FALSE};
 
+// SVG graphics system
+NSVGimage* menu_graphics = NULL;
+NSVGimage* hud_graphics = NULL;
+
 // Function prototypes
 void spawn_particles(float x, float z, int type);
 void update_particles(void);
@@ -114,6 +119,13 @@ void render_frame(void);
 BOOL init_opengl(HWND hWnd);
 void cleanup_opengl(void);
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+// SVG graphics functions
+void init_svg_graphics(void);
+void cleanup_svg_graphics(void);
+void draw_svg_graphics(NSVGimage* image, float x, float y, float scale);
+NSVGimage* create_menu_graphics(void);
+NSVGimage* create_hud_graphics(void);
 
 void spawn_particles(float x, float z, int type) {
     for (int i = 0; i < 8 && particle_count < MAX_PARTICLES; ++i) {
