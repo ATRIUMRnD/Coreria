@@ -9,12 +9,14 @@ pub mod types;
 pub mod match_api;
 pub mod player_api;
 pub mod input_api;
+pub mod ragdoll_api;
 
 // Re-export FFI types for C header generation
 pub use types::*;
 pub use match_api::*;
 pub use player_api::*;
 pub use input_api::*;
+pub use ragdoll_api::*;
 
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_float, c_int};
