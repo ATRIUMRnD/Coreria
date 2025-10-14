@@ -138,7 +138,7 @@ pub extern "C" fn coreria_get_match_players(
 
 /// Check if player is alive
 #[no_mangle]
-pub extern "C" fn coreria_is_player_alive(player_id: c_uint) -> c_int {
+pub extern "C" fn coreria_is_player_alive(_player_id: c_uint) -> c_int {
     // Would check actual health component
     // For now, assume all players are alive
     1

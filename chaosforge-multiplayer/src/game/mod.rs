@@ -199,7 +199,7 @@ fn update_match_timer(
 fn check_win_conditions(
     match_query: Query<&MatchState>,
     player_query: Query<(&crate::entities::Player, &crate::entities::Health, &PlayerScore)>,
-    commands: Commands,
+    _commands: Commands,
 ) {
     for match_state in match_query.iter() {
         if !matches!(match_state.status, MatchStatus::InProgress) {
@@ -238,7 +238,7 @@ fn manage_player_respawns(
             return;
         }
 
-        for (entity, player, mut health, mut transform) in player_query.iter_mut() {
+        for (_entity, player, mut health, mut transform) in player_query.iter_mut() {
             // Check if player fell out of bounds
             if transform.translation.y < rules.arena_bounds.death_plane_y && health.is_alive {
                 let damage_amount = health.current;

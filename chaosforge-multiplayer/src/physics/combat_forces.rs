@@ -102,7 +102,7 @@ pub fn apply_combat_forces(
     #[cfg(feature = "multiplayer-physics")]
     mut physics_query: Query<&mut bevy_rapier3d::dynamics::RigidBody>,
     
-    combat_query: Query<(&crate::entities::CombatState, &crate::entities::Player, &Transform)>,
+    _combat_query: Query<(&crate::entities::CombatState, &crate::entities::Player, &Transform)>,
 ) {
     #[cfg(feature = "multiplayer-physics")]
     {

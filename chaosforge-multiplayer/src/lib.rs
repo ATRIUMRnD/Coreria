@@ -59,7 +59,6 @@ pub use ffi::*;
 
 use bevy::prelude::*;
 
-/// Global engine instance for FFI access
 // Thread-local engine instance for FFI access
 thread_local! {
     static ENGINE_INSTANCE: std::cell::RefCell<Option<MultiplayerEngine>> = std::cell::RefCell::new(None);
@@ -167,7 +166,7 @@ impl MultiplayerEngine {
     }
 
     /// Step physics and game simulation
-    pub fn step_simulation(&mut self, delta_time: f32) -> bool {
+    pub fn step_simulation(&mut self, _delta_time: f32) -> bool {
         let now = std::time::Instant::now();
         let elapsed = now.duration_since(self.last_update).as_secs_f64();
         

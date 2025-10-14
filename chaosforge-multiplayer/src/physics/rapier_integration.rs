@@ -16,7 +16,7 @@ pub fn monitor_physics_performance(
 
 /// Update joint constraints based on style properties  
 pub fn update_joint_constraints(
-    ragdoll_query: Query<(&crate::entities::RagdollBody, &crate::entities::StyleProperties)>,
+    _ragdoll_query: Query<(&crate::entities::RagdollBody, &crate::entities::StyleProperties)>,
 ) {
     #[cfg(feature = "multiplayer-physics")]
     {
