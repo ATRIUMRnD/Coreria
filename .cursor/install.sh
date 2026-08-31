@@ -33,6 +33,9 @@ cargo build
 cargo build --manifest-path chaosforge-multiplayer/Cargo.toml --locked --features ffi
 
 # Flagship ChaosForge C game (OpenGL/GLFW/GLUT).
+# The repo ships prebuilt Windows/MinGW .o objects; clean first so make
+# recompiles every source for Linux instead of relinking stale PE objects.
+make -C chaosforge-game clean
 make -C chaosforge-game
 
 echo "Coreria environment bootstrap complete."
