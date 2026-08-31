@@ -26,3 +26,9 @@ target/
 .DS_Store
 .idea/
 .vscode/
+
+# Native C game build outputs (produced by .cursor/install.sh on Linux).
+# These were previously committed as Windows/MinGW objects and a foreign
+# prebuilt binary, which shadowed the local Linux build after checkout.
+chaosforge-game/*.o
+chaosforge-game/chaosforge
