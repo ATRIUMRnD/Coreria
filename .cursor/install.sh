@@ -19,6 +19,9 @@ sudo apt-get install -y --no-install-recommends \
   libwayland-dev libxkbcommon-dev \
   libgl1-mesa-dri mesa-utils xvfb x11-utils imagemagick
 
+# Refresh the dynamic linker cache so freshly installed GL/GLUT libs resolve.
+sudo ldconfig
+
 # --- Rust toolchain ------------------------------------------------------
 # The chaosforge-multiplayer lockfile pins crates that require edition 2024,
 # which is only available on Rust >= 1.85. Use the latest stable toolchain.
@@ -37,5 +40,6 @@ cargo build --manifest-path chaosforge-multiplayer/Cargo.toml --locked --feature
 # recompiles every source for Linux instead of relinking stale PE objects.
 make -C chaosforge-game clean
 make -C chaosforge-game
+chmod +x chaosforge-game/chaosforge 2>/dev/null || true
 
 echo "Coreria environment bootstrap complete."
