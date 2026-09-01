@@ -46,7 +46,7 @@ pub fn sync_network_state(
 ) {
     let current_time = time.elapsed_seconds_f64();
     
-    for (entity, mut network_state, transform, health) in network_query.iter_mut() {
+    for (_entity, mut network_state, transform, health) in network_query.iter_mut() {
         // Update sync timing
         network_state.last_sync_time = current_time;
         

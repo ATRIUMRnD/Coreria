@@ -57,8 +57,9 @@ static mut NEXT_RAGDOLL_ID: u32 = 1;
 /// Initialize ragdoll registry (called internally)
 fn ensure_registry() {
     unsafe {
-        if RAGDOLL_REGISTRY.is_none() {
-            RAGDOLL_REGISTRY = Some(HashMap::new());
+        let registry_ptr = &raw mut RAGDOLL_REGISTRY;
+        if (*registry_ptr).is_none() {
+            *registry_ptr = Some(HashMap::new());
         }
     }
 }
@@ -201,7 +202,7 @@ pub extern "C" fn coreria_apply_limb_force(
                 
                 // Calculate style-specific force multipliers
                 let force_multiplier = player.style.damage_multiplier();
-                let mass_multiplier = player.style.mass_multiplier();
+                let _mass_multiplier = player.style.mass_multiplier();
                 
                 // Apply style scaling
                 let scaled_force = Vec3::new(
@@ -227,7 +228,7 @@ pub extern "C" fn coreria_apply_limb_force(
                     _ => None,
                 };
                 
-                if let Some(limb_entity) = limb_entity {
+                if let Some(_limb_entity) = limb_entity {
                     // TODO: Apply force to physics body when rapier integration is complete
                     println!("[CORERIA] Applied force {:?} and torque {:?} to limb {} (style: {:?})", 
                             scaled_force, scaled_torque, limb_index, player.style);

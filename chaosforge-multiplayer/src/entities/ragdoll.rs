@@ -202,9 +202,9 @@ impl JointLimits {
 pub fn update_ragdoll_bodies(
     mut ragdoll_query: Query<(Entity, &mut RagdollBody, &crate::entities::StyleProperties)>,
     mut part_query: Query<(&mut Transform, &RagdollPart)>,
-    time: Res<Time>,
+    _time: Res<Time>,
 ) {
-    for (ragdoll_entity, mut ragdoll, style_props) in ragdoll_query.iter_mut() {
+    for (_ragdoll_entity, mut ragdoll, style_props) in ragdoll_query.iter_mut() {
         // Update mass scaling based on fighting style
         ragdoll.mass_scale = style_props.mass_multiplier;
         ragdoll.total_mass = 65.0 * ragdoll.mass_scale;

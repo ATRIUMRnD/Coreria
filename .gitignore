@@ -27,24 +27,42 @@ target/
 .idea/
 .vscode/
 
-# Native C game build outputs (produced by .cursor/install.sh on Linux).
-# These were previously committed as Windows/MinGW objects and a foreign
-# prebuilt binary, which shadowed the local Linux build after checkout.
-chaosforge-game/*.o
+# Ignore C/C++ build artifacts under chaosforge-game
+chaosforge-game/**/*.o
+chaosforge-game/**/*.obj
+chaosforge-game/**/*.so
+chaosforge-game/**/*.dll
+chaosforge-game/**/*.dylib
+chaosforge-game/**/*.a
+chaosforge-game/**/*.lib
+chaosforge-game/**/*.pdb
+chaosforge-game/**/*.exe
+chaosforge-game/**/*.out
+chaosforge-game/**/build/
+chaosforge-game/**/bin/
+chaosforge-game/**/dist/
+chaosforge-game/**/Debug/
+chaosforge-game/**/Release/
+chaosforge-game/**/CMakeFiles/
+chaosforge-game/**/CMakeCache.txt
 chaosforge-game/chaosforge
+chaosforge-game/test_titan
 
-# Compiled binaries and object files (ensure these never get committed)
-*.o
-*.obj
-*.lo
-*.la
-*.a
-*.so
-*.dylib
-*.dll
-*.exe
-*.out
-*.class
-*.pyc
-*.pyo
-*.pyd
+# Ignore C/C++ build artifacts under chaosforge-multiplayer
+chaosforge-multiplayer/**/*.o
+chaosforge-multiplayer/**/*.obj
+chaosforge-multiplayer/**/*.so
+chaosforge-multiplayer/**/*.dll
+chaosforge-multiplayer/**/*.dylib
+chaosforge-multiplayer/**/*.a
+chaosforge-multiplayer/**/*.lib
+chaosforge-multiplayer/**/*.pdb
+chaosforge-multiplayer/**/*.exe
+chaosforge-multiplayer/**/*.out
+chaosforge-multiplayer/**/build/
+chaosforge-multiplayer/**/bin/
+chaosforge-multiplayer/**/dist/
+chaosforge-multiplayer/**/Debug/
+chaosforge-multiplayer/**/Release/
+chaosforge-multiplayer/**/CMakeFiles/
+chaosforge-multiplayer/**/CMakeCache.txt

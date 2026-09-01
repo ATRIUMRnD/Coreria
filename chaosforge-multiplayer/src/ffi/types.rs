@@ -5,7 +5,7 @@ C-compatible data structures for the FFI boundary.
 These match the data model specifications with C-friendly layout.
 */
 
-use std::os::raw::{c_char, c_float, c_int, c_uint};
+use std::os::raw::{c_float, c_int, c_uint};
 
 /// C-compatible player state structure
 #[repr(C)]

@@ -2,16 +2,58 @@
 name = "coreria"
 version = "0.1.0"
 edition = "2021"
+description = "A custom game engine for physics-based combat games"
+authors = ["CGXDevTeam"]
+license = "MIT"
+repository = "https://github.com/CGXDevTeam/Coreria"
+readme = "README.md"
+keywords = ["game-engine", "physics", "combat", "multiplayer"]
+categories = ["games", "simulation"]
+
+[workspace]
+members = ["chaosforge-multiplayer"]
 
 [dependencies]
+bevy = { version = "0.13", features = ["default"] }
 gl = "0.14"
-bevy = "0.13"
-# .cargo/config.toml
+glfw = "0.52"
+winit = "0.29"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+log = "0.4"
+env_logger = "0.10"
+
+# Physics engine integration (placeholder for ODE bindings)
+# Note: Real ODE bindings would go here
+nalgebra = "0.32"
+
+# FFI support for C integration
+libc = "0.2"
+
+[dependencies.chaosforge-multiplayer]
+path = "./chaosforge-multiplayer"
+optional = true
+
+[features]
+default = ["multiplayer"]
+multiplayer = ["chaosforge-multiplayer"]
+physics-ode = []  # Future ODE integration
+debug-render = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.dev]
+opt-level = 1
+
+# Build configuration
 [build]
 rustc-wrapper = "sccache"
-# .cargo/config.toml
+
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
-# .cargo/config.toml
+
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-C", "linker=clang", "-C", "link-arg=-fuse-ld=lld"]

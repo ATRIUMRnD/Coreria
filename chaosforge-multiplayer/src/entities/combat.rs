@@ -89,12 +89,12 @@ pub enum DamageType {
 /// System to process combat actions and resolve damage
 pub fn process_combat_actions(
     mut combat_query: Query<(Entity, &mut CombatState, &crate::entities::Player, &Transform)>,
-    damage_events: EventWriter<DamageEvent>,
+    _damage_events: EventWriter<DamageEvent>,
     time: Res<Time>,
 ) {
     let current_time = time.elapsed_seconds_f64();
     
-    for (entity, mut combat_state, player, transform) in combat_query.iter_mut() {
+    for (_entity, mut combat_state, _player, _transform) in combat_query.iter_mut() {
         // Update combo timing
         if let Some(ref mut combo) = combat_state.current_combo {
             combo.timing_window -= time.delta_seconds();
