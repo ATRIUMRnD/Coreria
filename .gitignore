@@ -47,22 +47,3 @@ chaosforge-game/**/CMakeFiles/
 chaosforge-game/**/CMakeCache.txt
 chaosforge-game/chaosforge
 chaosforge-game/test_titan
-
-# Ignore C/C++ build artifacts under chaosforge-multiplayer
-chaosforge-multiplayer/**/*.o
-chaosforge-multiplayer/**/*.obj
-chaosforge-multiplayer/**/*.so
-chaosforge-multiplayer/**/*.dll
-chaosforge-multiplayer/**/*.dylib
-chaosforge-multiplayer/**/*.a
-chaosforge-multiplayer/**/*.lib
-chaosforge-multiplayer/**/*.pdb
-chaosforge-multiplayer/**/*.exe
-chaosforge-multiplayer/**/*.out
-chaosforge-multiplayer/**/build/
-chaosforge-multiplayer/**/bin/
-chaosforge-multiplayer/**/dist/
-chaosforge-multiplayer/**/Debug/
-chaosforge-multiplayer/**/Release/
-chaosforge-multiplayer/**/CMakeFiles/
-chaosforge-multiplayer/**/CMakeCache.txt
