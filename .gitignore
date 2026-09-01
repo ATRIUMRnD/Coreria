@@ -32,3 +32,19 @@ target/
 # prebuilt binary, which shadowed the local Linux build after checkout.
 chaosforge-game/*.o
 chaosforge-game/chaosforge
+
+# Compiled binaries and object files (ensure these never get committed)
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.class
+*.pyc
+*.pyo
+*.pyd
