@@ -147,9 +147,14 @@ static mut LAST_ERROR: Option<CString> = None;
 #[no_mangle]
 pub extern "C" fn coreria_get_last_error() -> *const c_char {
     unsafe {
-        match &LAST_ERROR {
-            Some(err) => err.as_ptr(),
-            None => std::ptr::null(),
+        match &raw const LAST_ERROR {
+            ptr => {
+                let last_error = &*ptr;
+                match last_error {
+                    Some(err) => err.as_ptr(),
+                    None => std::ptr::null(),
+                }
+            }
         }
     }
 }

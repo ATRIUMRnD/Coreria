@@ -26,3 +26,24 @@ target/
 .DS_Store
 .idea/
 .vscode/
+
+# Ignore C/C++ build artifacts under chaosforge-game
+chaosforge-game/**/*.o
+chaosforge-game/**/*.obj
+chaosforge-game/**/*.so
+chaosforge-game/**/*.dll
+chaosforge-game/**/*.dylib
+chaosforge-game/**/*.a
+chaosforge-game/**/*.lib
+chaosforge-game/**/*.pdb
+chaosforge-game/**/*.exe
+chaosforge-game/**/*.out
+chaosforge-game/**/build/
+chaosforge-game/**/bin/
+chaosforge-game/**/dist/
+chaosforge-game/**/Debug/
+chaosforge-game/**/Release/
+chaosforge-game/**/CMakeFiles/
+chaosforge-game/**/CMakeCache.txt
+chaosforge-game/chaosforge
+chaosforge-game/test_titan

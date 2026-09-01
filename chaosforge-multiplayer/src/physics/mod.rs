@@ -19,7 +19,7 @@ pub use combat_forces::*;
 pub struct PhysicsPlugin;
 
 impl Plugin for PhysicsPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         #[cfg(feature = "multiplayer-physics")]
         {
             app

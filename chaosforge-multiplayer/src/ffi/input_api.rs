@@ -65,7 +65,7 @@ pub extern "C" fn coreria_clear_input_buffer(player_id: c_uint) -> c_int {
 /// Check if a specific action is currently active for a player
 #[no_mangle]
 pub extern "C" fn coreria_is_action_active(
-    player_id: c_uint,
+    _player_id: c_uint,
     action: CInputAction
 ) -> c_int {
     if let Some(_rust_action) = action.to_rust() {
@@ -89,7 +89,7 @@ pub extern "C" fn coreria_keycode_to_action(keycode: c_uint) -> c_int {
 
 /// Get input buffer size for a player
 #[no_mangle]
-pub extern "C" fn coreria_get_input_buffer_size(player_id: c_uint) -> c_int {
+pub extern "C" fn coreria_get_input_buffer_size(_player_id: c_uint) -> c_int {
     // Would return actual buffer size from InputBuffer component
     0
 }
